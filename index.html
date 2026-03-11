@@ -805,8 +805,8 @@
     async function fetchTicker(ticker) {
       try {
         const now = new Date();
-        const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000);
-        const startDate = twoYearsAgo.toISOString().split('T')[0];
+        const tenYearsAgo = new Date(now.getTime() - 3650 * 24 * 60 * 60 * 1000);
+        const startDate = tenYearsAgo.toISOString().split('T')[0];
         const endDate = now.toISOString().split('T')[0];
 
         const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?adjusted=true&sort=asc&limit=50000&apiKey=${API_KEY}`;
@@ -2148,28 +2148,37 @@
       html += `<div class="bt-stat-card"><div class="bt-stat-value" style="color:var(--red)">${bt.stormyPct.toFixed(0)}%</div><div class="bt-stat-label">Time in Stormy</div></div>`;
       html += '</div>';
 
+      // Compute overall SPY average for relative comparison
+      const allStates = ['Sunny', 'Partly Cloudy', 'Overcast', 'Stormy'];
+      const totalCount = allStates.reduce((sum, s) => sum + sr[s].count, 0);
+      const overallAvg3m = totalCount > 0 ? allStates.reduce((sum, s) => sum + sr[s].avg3m * sr[s].count, 0) / totalCount : 0;
+      const overallAvg1m = totalCount > 0 ? allStates.reduce((sum, s) => sum + sr[s].avg1m * sr[s].count, 0) / totalCount : 0;
+
       // Performance by Weather State table
       html += '<div class="bt-section"><div class="bt-section-title">SPY Forward Returns by Macro Weather State</div></div>';
       html += '<table class="bt-table"><thead><tr>';
-      html += '<th>Weather</th><th>Days</th><th>Avg 1m Return</th><th>Avg 3m Return</th><th>Median 3m</th><th>1m Win Rate</th><th>3m Win Rate</th><th>Avg Max DD</th><th>Best 3m</th><th>Worst 3m</th>';
+      html += '<th>Weather</th><th>Days</th><th>Avg 1m Return</th><th>Avg 3m Return</th><th>vs. Average</th><th>Median 3m</th><th>1m Win Rate</th><th>3m Win Rate</th><th>Avg Max DD</th><th>Best 3m</th><th>Worst 3m</th>';
       html += '</tr></thead><tbody>';
 
       const weatherColors = { 'Sunny': 'var(--green)', 'Partly Cloudy': 'var(--blue)', 'Overcast': 'var(--orange)', 'Stormy': 'var(--red)' };
       const weatherEmoji = { 'Sunny': '☀️', 'Partly Cloudy': '⛅', 'Overcast': '☁️', 'Stormy': '⛈️' };
 
-      ['Sunny', 'Partly Cloudy', 'Overcast', 'Stormy'].forEach(state => {
+      allStates.forEach(state => {
         const s = sr[state];
         const isCurrentState = state === currentLabel;
         const color = weatherColors[state];
         const sign1m = s.avg1m >= 0 ? '+' : '';
         const sign3m = s.avg3m >= 0 ? '+' : '';
         const signM3m = s.median3m >= 0 ? '+' : '';
+        const vsAvg = s.avg3m - overallAvg3m;
+        const vsSign = vsAvg >= 0 ? '+' : '';
 
         html += `<tr ${isCurrentState ? 'class="highlight-row"' : ''}>`;
         html += `<td style="font-weight:700;color:${color}">${weatherEmoji[state]} ${state}</td>`;
         html += `<td>${s.count}</td>`;
         html += `<td style="color:${s.avg1m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${sign1m}${s.avg1m.toFixed(2)}%</td>`;
         html += `<td style="color:${s.avg3m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${sign3m}${s.avg3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${vsAvg >= 0 ? 'var(--cyan)' : 'var(--magenta)'}; font-weight:700">${vsSign}${vsAvg.toFixed(2)}%</td>`;
         html += `<td style="color:${s.median3m >= 0 ? 'var(--green)' : 'var(--red)'}">${signM3m}${s.median3m.toFixed(2)}%</td>`;
         html += `<td style="color:${s.winRate1m >= 55 ? 'var(--green)' : s.winRate1m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate1m.toFixed(0)}%</td>`;
         html += `<td style="color:${s.winRate3m >= 55 ? 'var(--green)' : s.winRate3m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate3m.toFixed(0)}%</td>`;
@@ -2178,6 +2187,17 @@
         html += `<td style="color:var(--red)">${s.worst3m ? s.worst3m.toFixed(1) + '%' : 'N/A'}</td>`;
         html += '</tr>';
       });
+
+      // Baseline row
+      html += `<tr style="border-top:2px solid var(--cyan)">`;
+      html += `<td style="font-weight:700;color:var(--cyan)">📊 All Periods (Baseline)</td>`;
+      html += `<td>${totalCount}</td>`;
+      html += `<td style="font-weight:600">${overallAvg1m >= 0 ? '+' : ''}${overallAvg1m.toFixed(2)}%</td>`;
+      html += `<td style="font-weight:600">${overallAvg3m >= 0 ? '+' : ''}${overallAvg3m.toFixed(2)}%</td>`;
+      html += `<td style="color:var(--text-secondary)">—</td>`;
+      html += `<td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>`;
+      html += '</tr>';
+
       html += '</tbody></table>';
 
       // Current state insight
@@ -2258,7 +2278,8 @@
       html += '4. For drawdown prediction, we check if the Weather score was below 55 within 20 trading days before each significant (>5%) SPY decline.<br><br>';
       html += '<strong style="color:var(--orange)">Important Caveats:</strong><br>';
       html += '• This is an <strong>in-sample</strong> backtest — the model was designed using the same data patterns it\'s tested on. Out-of-sample validation would be more rigorous.<br>';
-      html += '• The data window is limited to ~2 years from Polygon.io. Ideally you\'d want 10-20 years covering multiple full market cycles.<br>';
+      html += '• The data spans ~10 years, covering the 2018 vol spike, 2020 COVID crash, and 2022 bear market — giving meaningful coverage across multiple regimes.<br>';
+      html += '• The <strong>"vs. Average"</strong> column is often more useful than raw returns. It shows how each weather state performs relative to the overall market average, removing the inherent upward drift of equities.<br>';
       html += '• No transaction costs or slippage are included. Real-world portfolio rebalancing has friction.<br>';
       html += '• The macro indicators (yield curve, credit spreads, volatility) have well-documented predictive power in academic literature going back decades — this backtest validates that the <em>specific implementation</em> captures those relationships.<br>';
       html += '• Past performance absolutely does not guarantee future results. Market regimes evolve.';
