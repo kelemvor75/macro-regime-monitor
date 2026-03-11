@@ -1171,7 +1171,7 @@
         DBC: allData.DBC.map(b => b.close)
       };
 
-      const dates = allData.SPY.map(b => b.date || new Date(b.t));
+      const dates = allData.SPY.map(b => new Date(b.timestamp));
       const minLen = Math.min(...Object.values(closes).map(c => c.length));
 
       // Trim all to common length
@@ -1338,35 +1338,68 @@
         });
       }
 
-      // Aggregate by weather state
+      // ── HELPER aggregation function ──
+      const avg = arr => arr.length > 0 ? arr.reduce((a,b) => a+b, 0) / arr.length : 0;
+      const median = arr => { if (!arr.length) return 0; const s = [...arr].sort((a,b) => a-b); const m = Math.floor(s.length/2); return s.length % 2 ? s[m] : (s[m-1]+s[m])/2; };
+      function aggregateGroup(entries) {
+        if (entries.length === 0) return { count: 0, avg1m: 0, avg3m: 0, winRate1m: 0, winRate3m: 0, avgMaxDD: 0, median1m: 0, median3m: 0, best3m: 0, worst3m: 0 };
+        const r1m = entries.map(e => e.spy1m), r3m = entries.map(e => e.spy3m), mdd = entries.map(e => e.maxDD);
+        return {
+          count: entries.length, avg1m: avg(r1m), avg3m: avg(r3m), median1m: median(r1m), median3m: median(r3m),
+          winRate1m: (r1m.filter(r => r > 0).length / r1m.length) * 100,
+          winRate3m: (r3m.filter(r => r > 0).length / r3m.length) * 100,
+          avgMaxDD: avg(mdd), best3m: Math.max(...r3m), worst3m: Math.min(...r3m)
+        };
+      }
+
+      // ── MODEL A: Current Level-Based (Aggregate by weather state) ──
       const states = ['Sunny', 'Partly Cloudy', 'Overcast', 'Stormy'];
       const stateResults = {};
-      states.forEach(state => {
-        const entries = dailyScores.filter(d => d.label === state);
-        if (entries.length === 0) {
-          stateResults[state] = { count: 0, avg1m: 0, avg3m: 0, winRate1m: 0, winRate3m: 0, avgMaxDD: 0, median1m: 0, median3m: 0 };
-          return;
+      states.forEach(state => { stateResults[state] = aggregateGroup(dailyScores.filter(d => d.label === state)); });
+
+      // ── MODEL B: Momentum-Based (20-day change in composite score) ──
+      // Compute 20-day momentum for each daily score entry
+      const lookback = 20;
+      for (let i = 0; i < dailyScores.length; i++) {
+        if (i >= lookback) {
+          dailyScores[i].momentum20d = dailyScores[i].score - dailyScores[i - lookback].score;
+        } else {
+          dailyScores[i].momentum20d = null;
         }
-        const returns1m = entries.map(e => e.spy1m);
-        const returns3m = entries.map(e => e.spy3m);
-        const maxDDs = entries.map(e => e.maxDD);
+        // Classify momentum
+        const m = dailyScores[i].momentum20d;
+        if (m === null) dailyScores[i].momentumLabel = null;
+        else if (m > 5) dailyScores[i].momentumLabel = 'Improving';
+        else if (m > 0) dailyScores[i].momentumLabel = 'Stable Positive';
+        else if (m > -5) dailyScores[i].momentumLabel = 'Stable Negative';
+        else dailyScores[i].momentumLabel = 'Deteriorating';
+      }
 
-        const avg = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
-        const median = arr => { const s = [...arr].sort((a,b) => a-b); const m = Math.floor(s.length/2); return s.length % 2 ? s[m] : (s[m-1]+s[m])/2; };
+      const momentumStates = ['Improving', 'Stable Positive', 'Stable Negative', 'Deteriorating'];
+      const momentumResults = {};
+      momentumStates.forEach(state => { momentumResults[state] = aggregateGroup(dailyScores.filter(d => d.momentumLabel === state)); });
 
-        stateResults[state] = {
-          count: entries.length,
-          avg1m: avg(returns1m),
-          avg3m: avg(returns3m),
-          median1m: median(returns1m),
-          median3m: median(returns3m),
-          winRate1m: (returns1m.filter(r => r > 0).length / returns1m.length) * 100,
-          winRate3m: (returns3m.filter(r => r > 0).length / returns3m.length) * 100,
-          avgMaxDD: avg(maxDDs),
-          best3m: Math.max(...returns3m),
-          worst3m: Math.min(...returns3m)
-        };
-      });
+      // ── MODEL C: Combo (Level + Momentum) ──
+      // Key insight: a high level that is deteriorating is DIFFERENT from a high level that's stable.
+      // Combine into 4 actionable states:
+      //   "Macro Tailwind"  = conditions good (score >= 55) AND stable/improving (momentum >= -2)
+      //   "Cracking"        = conditions good (score >= 55) BUT deteriorating (momentum < -2)
+      //   "Bottoming"       = conditions bad (score < 55) BUT improving (momentum > +2)
+      //   "Macro Headwind"  = conditions bad (score < 55) AND still deteriorating/stable (momentum <= +2)
+      for (let i = 0; i < dailyScores.length; i++) {
+        const m = dailyScores[i].momentum20d;
+        const s = dailyScores[i].score;
+        if (m === null) { dailyScores[i].comboLabel = null; continue; }
+
+        if (s >= 55 && m >= -2) dailyScores[i].comboLabel = 'Macro Tailwind';
+        else if (s >= 55 && m < -2) dailyScores[i].comboLabel = 'Cracking';
+        else if (s < 55 && m > 2) dailyScores[i].comboLabel = 'Bottoming';
+        else dailyScores[i].comboLabel = 'Macro Headwind';
+      }
+
+      const comboStates = ['Macro Tailwind', 'Cracking', 'Bottoming', 'Macro Headwind'];
+      const comboResults = {};
+      comboStates.forEach(state => { comboResults[state] = aggregateGroup(dailyScores.filter(d => d.comboLabel === state)); });
 
       // Regime transition analysis
       const transitions = [];
@@ -1422,6 +1455,10 @@
       backtestResults = {
         dailyScores,
         stateResults,
+        momentumResults,
+        comboResults,
+        momentumStates,
+        comboStates,
         transitions,
         drawdowns,
         scoreTimeSeries,
@@ -2213,6 +2250,162 @@
         else html += 'Returns in this environment tend to be modest — favoring selective positioning over aggressive bets.';
         html += '</div>';
       }
+
+      // ═══════════════════════════════════════
+      // MODEL B: MOMENTUM-BASED
+      // ═══════════════════════════════════════
+      const mr = bt.momentumResults;
+      const momentumStates = bt.momentumStates;
+      const comboStates = bt.comboStates;
+      html += '<div class="bt-section"><div class="bt-section-title" style="color:var(--purple)">Model B: Momentum-Based (20-Day Score Change)</div></div>';
+      html += `<div class="bt-insight" style="border-left-color:var(--purple)">Instead of asking "where is the score now?", this model asks "which direction is the score <em>moving</em>?" — classifying based on the 20-day change in the composite Macro Weather Score. The theory: deteriorating conditions predict bad forward returns, improving conditions predict good ones.</div>`;
+
+      html += '<table class="bt-table"><thead><tr>';
+      html += '<th>Momentum</th><th>Days</th><th>Avg 1m</th><th>Avg 3m</th><th>vs. Avg</th><th>Median 3m</th><th>1m Win</th><th>3m Win</th><th>Avg Max DD</th><th>Best 3m</th><th>Worst 3m</th>';
+      html += '</tr></thead><tbody>';
+
+      const momColors = { 'Improving': 'var(--green)', 'Stable Positive': 'var(--blue)', 'Stable Negative': 'var(--orange)', 'Deteriorating': 'var(--red)' };
+      const momEmoji = { 'Improving': '🚀', 'Stable Positive': '📈', 'Stable Negative': '📉', 'Deteriorating': '💥' };
+      const momDesc = { 'Improving': '>+5 pts/20d', 'Stable Positive': '0 to +5', 'Stable Negative': '-5 to 0', 'Deteriorating': '<-5 pts/20d' };
+
+      momentumStates.forEach(state => {
+        const s = mr[state];
+        const vsAvg = s.avg3m - overallAvg3m;
+        html += `<tr>`;
+        html += `<td style="font-weight:700;color:${momColors[state]}">${momEmoji[state]} ${state}<br><span style="font-size:10px;font-weight:400;color:var(--text-secondary)">${momDesc[state]}</span></td>`;
+        html += `<td>${s.count}</td>`;
+        html += `<td style="color:${s.avg1m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${s.avg1m >= 0 ? '+' : ''}${s.avg1m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.avg3m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${s.avg3m >= 0 ? '+' : ''}${s.avg3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${vsAvg >= 0 ? 'var(--cyan)' : 'var(--magenta)'}; font-weight:700">${vsAvg >= 0 ? '+' : ''}${vsAvg.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.median3m >= 0 ? 'var(--green)' : 'var(--red)'}">${s.median3m >= 0 ? '+' : ''}${s.median3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.winRate1m >= 55 ? 'var(--green)' : s.winRate1m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate1m.toFixed(0)}%</td>`;
+        html += `<td style="color:${s.winRate3m >= 55 ? 'var(--green)' : s.winRate3m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate3m.toFixed(0)}%</td>`;
+        html += `<td style="color:var(--red)">${s.avgMaxDD.toFixed(2)}%</td>`;
+        html += `<td style="color:var(--green)">${s.best3m ? '+' + s.best3m.toFixed(1) + '%' : 'N/A'}</td>`;
+        html += `<td style="color:var(--red)">${s.worst3m ? s.worst3m.toFixed(1) + '%' : 'N/A'}</td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      // ═══════════════════════════════════════
+      // MODEL C: COMBO (Level + Momentum)
+      // ═══════════════════════════════════════
+      const cr = bt.comboResults;
+      html += '<div class="bt-section"><div class="bt-section-title" style="color:var(--gold)">Model C: Combo — Level + Momentum</div></div>';
+      html += `<div class="bt-insight" style="border-left-color:var(--gold)">This model combines <em>where we are</em> with <em>where we're heading</em>. It identifies four actionable regimes:<br>`;
+      html += `<strong style="color:var(--green)">Macro Tailwind</strong> = Good conditions + stable/improving (score ≥55, momentum ≥-2)<br>`;
+      html += `<strong style="color:var(--red)">Cracking</strong> = Good conditions BUT deteriorating (score ≥55, momentum <-2) — the danger zone<br>`;
+      html += `<strong style="color:var(--cyan)">Bottoming</strong> = Bad conditions BUT improving (score <55, momentum >+2) — the opportunity zone<br>`;
+      html += `<strong style="color:var(--orange)">Macro Headwind</strong> = Bad conditions + still deteriorating/flat (score <55, momentum ≤+2)</div>`;
+
+      html += '<table class="bt-table"><thead><tr>';
+      html += '<th>Regime</th><th>Days</th><th>Avg 1m</th><th>Avg 3m</th><th>vs. Avg</th><th>Median 3m</th><th>1m Win</th><th>3m Win</th><th>Avg Max DD</th><th>Best 3m</th><th>Worst 3m</th>';
+      html += '</tr></thead><tbody>';
+
+      const comboColors = { 'Macro Tailwind': 'var(--green)', 'Cracking': 'var(--red)', 'Bottoming': 'var(--cyan)', 'Macro Headwind': 'var(--orange)' };
+      const comboEmoji = { 'Macro Tailwind': '🟢', 'Cracking': '🔴', 'Bottoming': '🔵', 'Macro Headwind': '🟠' };
+
+      comboStates.forEach(state => {
+        const s = cr[state];
+        const vsAvg = s.avg3m - overallAvg3m;
+        html += `<tr>`;
+        html += `<td style="font-weight:700;color:${comboColors[state]}">${comboEmoji[state]} ${state}</td>`;
+        html += `<td>${s.count}</td>`;
+        html += `<td style="color:${s.avg1m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${s.avg1m >= 0 ? '+' : ''}${s.avg1m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.avg3m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${s.avg3m >= 0 ? '+' : ''}${s.avg3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${vsAvg >= 0 ? 'var(--cyan)' : 'var(--magenta)'}; font-weight:700">${vsAvg >= 0 ? '+' : ''}${vsAvg.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.median3m >= 0 ? 'var(--green)' : 'var(--red)'}">${s.median3m >= 0 ? '+' : ''}${s.median3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.winRate1m >= 55 ? 'var(--green)' : s.winRate1m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate1m.toFixed(0)}%</td>`;
+        html += `<td style="color:${s.winRate3m >= 55 ? 'var(--green)' : s.winRate3m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate3m.toFixed(0)}%</td>`;
+        html += `<td style="color:var(--red)">${s.avgMaxDD.toFixed(2)}%</td>`;
+        html += `<td style="color:var(--green)">${s.best3m ? '+' + s.best3m.toFixed(1) + '%' : 'N/A'}</td>`;
+        html += `<td style="color:var(--red)">${s.worst3m ? s.worst3m.toFixed(1) + '%' : 'N/A'}</td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      // ═══════════════════════════════════════
+      // HEAD-TO-HEAD COMPARISON
+      // ═══════════════════════════════════════
+      html += '<div class="bt-section"><div class="bt-section-title" style="color:var(--cyan)">Head-to-Head Model Comparison</div></div>';
+
+      // Compute spread (best state avg3m minus worst state avg3m) for each model
+      function modelSpread(results, stateList) {
+        const avgs = stateList.map(s => results[s].avg3m).filter(v => !isNaN(v));
+        const wins = stateList.map(s => results[s].winRate3m).filter(v => !isNaN(v));
+        return {
+          bestAvg: Math.max(...avgs), worstAvg: Math.min(...avgs), spread: Math.max(...avgs) - Math.min(...avgs),
+          bestWin: Math.max(...wins), worstWin: Math.min(...wins), winSpread: Math.max(...wins) - Math.min(...wins)
+        };
+      }
+
+      const spreadA = modelSpread(sr, states);
+      const spreadB = modelSpread(mr, momentumStates);
+      const spreadC = modelSpread(cr, comboStates);
+
+      html += '<table class="bt-table"><thead><tr>';
+      html += '<th>Metric</th><th style="color:var(--orange)">Model A: Level</th><th style="color:var(--purple)">Model B: Momentum</th><th style="color:var(--gold)">Model C: Combo</th>';
+      html += '</tr></thead><tbody>';
+
+      html += `<tr><td style="font-weight:600">Best State Avg 3M</td>`;
+      html += `<td style="color:var(--green)">${spreadA.bestAvg >= 0 ? '+' : ''}${spreadA.bestAvg.toFixed(2)}%</td>`;
+      html += `<td style="color:var(--green)">${spreadB.bestAvg >= 0 ? '+' : ''}${spreadB.bestAvg.toFixed(2)}%</td>`;
+      html += `<td style="color:var(--green)">${spreadC.bestAvg >= 0 ? '+' : ''}${spreadC.bestAvg.toFixed(2)}%</td></tr>`;
+
+      html += `<tr><td style="font-weight:600">Worst State Avg 3M</td>`;
+      html += `<td style="color:var(--red)">${spreadA.worstAvg >= 0 ? '+' : ''}${spreadA.worstAvg.toFixed(2)}%</td>`;
+      html += `<td style="color:var(--red)">${spreadB.worstAvg >= 0 ? '+' : ''}${spreadB.worstAvg.toFixed(2)}%</td>`;
+      html += `<td style="color:var(--red)">${spreadC.worstAvg >= 0 ? '+' : ''}${spreadC.worstAvg.toFixed(2)}%</td></tr>`;
+
+      const maxSpread = Math.max(spreadA.spread, spreadB.spread, spreadC.spread);
+      html += `<tr><td style="font-weight:700">Return Spread (Best - Worst)</td>`;
+      html += `<td style="font-weight:700;color:${spreadA.spread === maxSpread ? 'var(--cyan)' : 'var(--text-secondary)'}">${spreadA.spread.toFixed(2)}% ${spreadA.spread === maxSpread ? '👑' : ''}</td>`;
+      html += `<td style="font-weight:700;color:${spreadB.spread === maxSpread ? 'var(--cyan)' : 'var(--text-secondary)'}">${spreadB.spread.toFixed(2)}% ${spreadB.spread === maxSpread ? '👑' : ''}</td>`;
+      html += `<td style="font-weight:700;color:${spreadC.spread === maxSpread ? 'var(--cyan)' : 'var(--text-secondary)'}">${spreadC.spread.toFixed(2)}% ${spreadC.spread === maxSpread ? '👑' : ''}</td></tr>`;
+
+      html += `<tr><td style="font-weight:600">Win Rate Spread</td>`;
+      const maxWinSpread = Math.max(spreadA.winSpread, spreadB.winSpread, spreadC.winSpread);
+      html += `<td style="font-weight:700;color:${spreadA.winSpread === maxWinSpread ? 'var(--cyan)' : 'var(--text-secondary)'}">${spreadA.winSpread.toFixed(0)}pp ${spreadA.winSpread === maxWinSpread ? '👑' : ''}</td>`;
+      html += `<td style="font-weight:700;color:${spreadB.winSpread === maxWinSpread ? 'var(--cyan)' : 'var(--text-secondary)'}">${spreadB.winSpread.toFixed(0)}pp ${spreadB.winSpread === maxWinSpread ? '👑' : ''}</td>`;
+      html += `<td style="font-weight:700;color:${spreadC.winSpread === maxWinSpread ? 'var(--cyan)' : 'var(--text-secondary)'}">${spreadC.winSpread.toFixed(0)}pp ${spreadC.winSpread === maxWinSpread ? '👑' : ''}</td></tr>`;
+
+      // Monotonicity check: does the ordering match expectations?
+      // For Model A: Sunny > PC > Overcast > Stormy expected
+      const aMonotonic = sr['Sunny'].avg3m >= sr['Partly Cloudy'].avg3m && sr['Partly Cloudy'].avg3m >= sr['Overcast'].avg3m && sr['Overcast'].avg3m >= sr['Stormy'].avg3m;
+      // For Model B: Improving > SP > SN > Deteriorating expected
+      const bMonotonic = mr['Improving'].avg3m >= mr['Stable Positive'].avg3m && mr['Stable Positive'].avg3m >= mr['Stable Negative'].avg3m && mr['Stable Negative'].avg3m >= mr['Deteriorating'].avg3m;
+      // For Model C: Tailwind > Bottoming > Headwind, Cracking should be worst
+      const cMonotonic = cr['Macro Tailwind'].avg3m >= cr['Bottoming'].avg3m && cr['Bottoming'].avg3m >= cr['Macro Headwind'].avg3m && cr['Cracking'].avg3m <= cr['Macro Headwind'].avg3m;
+
+      html += `<tr><td style="font-weight:600">Correct Ordering?</td>`;
+      html += `<td style="color:${aMonotonic ? 'var(--green)' : 'var(--red)'};font-weight:700">${aMonotonic ? '✅ Yes' : '❌ Inverted'}</td>`;
+      html += `<td style="color:${bMonotonic ? 'var(--green)' : 'var(--red)'};font-weight:700">${bMonotonic ? '✅ Yes' : '❌ Inverted'}</td>`;
+      html += `<td style="color:${cMonotonic ? 'var(--green)' : 'var(--red)'};font-weight:700">${cMonotonic ? '✅ Yes' : '❌ Inverted'}</td></tr>`;
+
+      html += '</tbody></table>';
+
+      // Winner declaration
+      const scores = [
+        { name: 'Model A (Level)', spread: spreadA.spread, monotonic: aMonotonic, winSpread: spreadA.winSpread },
+        { name: 'Model B (Momentum)', spread: spreadB.spread, monotonic: bMonotonic, winSpread: spreadB.winSpread },
+        { name: 'Model C (Combo)', spread: spreadC.spread, monotonic: cMonotonic, winSpread: spreadC.winSpread }
+      ];
+      // Score: monotonic ordering matters most, then spread, then win spread
+      scores.forEach(s => { s.total = (s.monotonic ? 50 : 0) + s.spread * 3 + s.winSpread * 0.5; });
+      scores.sort((a, b) => b.total - a.total);
+      const winner = scores[0];
+
+      html += `<div class="bt-insight" style="border-left-color:var(--cyan)">`;
+      html += `<strong style="color:var(--cyan)">Verdict:</strong> <strong>${winner.name}</strong> produces the best predictive differentiation with a ${winner.spread.toFixed(2)}% return spread between its best and worst states`;
+      if (winner.monotonic) html += ' and correct directional ordering (better states → better returns)';
+      else html += ', though the ordering is inverted — suggesting the classification captures contemporaneous conditions rather than forward-looking signals';
+      html += '. ';
+      if (scores[0].name !== 'Model A (Level)') {
+        html += `This outperforms the current level-based approach (Model A: ${spreadA.spread.toFixed(2)}% spread). Consider adopting this model for the main dashboard scoring.`;
+      } else {
+        html += 'The current model is performing as well or better than the alternatives tested here.';
+      }
+      html += '</div>';
 
       // Drawdown prediction accuracy
       if (bt.drawdowns.length > 0) {
