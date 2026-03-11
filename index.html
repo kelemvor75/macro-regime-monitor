@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Macro Regime Monitor — The Telescope</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --orange: #d29922;
+      --blue: #58a6ff;
+      --purple: #bc8cff;
+      --cyan: #39d2c0;
+      --magenta: #f778ba;
+      --gold: #f0b429;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .briefing-panel {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .briefing-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .briefing-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .copy-btn {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background-color: var(--border);
+      border-color: var(--text-secondary);
+    }
+
+    .status-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .status-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-tag.sunny {
+      background-color: rgba(63, 185, 80, 0.2);
+      color: var(--green);
+    }
+
+    .status-tag.partly-cloudy {
+      background-color: rgba(88, 166, 255, 0.2);
+      color: var(--blue);
+    }
+
+    .status-tag.overcast {
+      background-color: rgba(210, 153, 34, 0.2);
+      color: var(--orange);
+    }
+
+    .status-tag.stormy {
+      background-color: rgba(248, 81, 73, 0.2);
+      color: var(--red);
+    }
+
+    .briefing-content {
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .briefing-bullet {
+      margin-bottom: 12px;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .briefing-bullet:before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--cyan);
+    }
+
+    .veil-alignment {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+
+    .veil-alignment.confirming {
+      border-color: var(--green);
+      background-color: rgba(63, 185, 80, 0.1);
+    }
+
+    .veil-alignment.diverging {
+      border-color: var(--red);
+      background-color: rgba(248, 81, 73, 0.1);
+    }
+
+    .veil-alignment.mixed {
+      border-color: var(--orange);
+      background-color: rgba(210, 153, 34, 0.1);
+    }
+
+    .alert-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .alert-chip {
+      background-color: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .metric-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s;
+    }
+
+    .metric-card:hover {
+      border-color: var(--text-secondary);
+    }
+
+    .m-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .m-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .m-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .sparkline-container {
+      width: 100%;
+      height: 30px;
+      margin-top: 12px;
+    }
+
+    .gauge-container {
+      margin-bottom: 24px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .gauge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .gauge-label {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .gauge-value {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .gauge-bar-wrapper {
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      height: 24px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .gauge-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .gauge-bar.green {
+      background: linear-gradient(90deg, var(--green), rgba(63, 185, 80, 0.5));
+      color: white;
+    }
+
+    .gauge-bar.blue {
+      background: linear-gradient(90deg, var(--blue), rgba(88, 166, 255, 0.5));
+      color: white;
+    }
+
+    .gauge-bar.orange {
+      background: linear-gradient(90deg, var(--orange), rgba(210, 153, 34, 0.5));
+      color: white;
+    }
+
+    .gauge-bar.red {
+      background: linear-gradient(90deg, var(--red), rgba(248, 81, 73, 0.5));
+      color: white;
+    }
+
+    .gauge-change {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .gauges-column {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scorecard-table {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .scorecard-table table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .scorecard-table th {
+      background-color: var(--bg-tertiary);
+      color: var(--text-secondary);
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .scorecard-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .scorecard-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .scorecard-table tr:hover {
+      background-color: var(--bg-tertiary);
+    }
+
+    .signal-cell {
+      font-weight: 600;
+    }
+
+    .signal-cell.green { color: var(--green); }
+    .signal-cell.blue { color: var(--blue); }
+    .signal-cell.orange { color: var(--orange); }
+    .signal-cell.red { color: var(--red); }
+
+    .score-cell {
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .change-positive {
+      color: var(--green);
+    }
+
+    .change-negative {
+      color: var(--red);
+    }
+
+    .weight-cell {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .chart-container {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    .timeframe-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .timeframe-btn {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .timeframe-btn.active {
+      background-color: var(--blue);
+      border-color: var(--blue);
+      color: white;
+    }
+
+    .timeframe-btn:hover:not(.active) {
+      border-color: var(--text-secondary);
+    }
+
+    .tabs-container {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+    }
+
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background-color: var(--bg-tertiary);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 16px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background-color: rgba(88, 166, 255, 0.1);
+    }
+
+    .tab-btn.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+
+    .tabs-content {
+      padding: 24px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .tab-section {
+      margin-bottom: 20px;
+    }
+
+    .tab-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tab-section p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .tab-ratio {
+      display: flex;
+      justify-content: space-between;
+      background-color: var(--bg-tertiary);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .tab-ratio-label {
+      color: var(--text-secondary);
+    }
+
+    .tab-ratio-value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .playbook-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .playbook-table th {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .playbook-table td {
+      padding: 10px;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .playbook-table tr.active td {
+      background-color: rgba(88, 166, 255, 0.1);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .alloc-banner {
+      background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(63, 185, 80, 0.1));
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .alloc-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .alloc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .alloc-item {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .alloc-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .alloc-range {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    .disclaimer {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-top: 40px;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-panel {
+      background-color: rgba(248, 81, 73, 0.1);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 16px;
+      color: var(--red);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1200px) {
+      .two-column, .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .metrics-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs-header {
+        flex-direction: column;
+      }
+
+      .tab-btn {
+        border-bottom: none;
+        border-left: 2px solid transparent;
+      }
+
+      .tab-btn.active {
+        border-left-color: var(--blue);
+        border-bottom: none;
+      }
+
+      .alloc-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Backtest styles */
+    .bt-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+    .bt-stat-card { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 14px; text-align: center; }
+    .bt-stat-value { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .bt-stat-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .bt-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 12px 0; }
+    .bt-table th { background: var(--purple); color: #fff; padding: 10px 12px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .bt-table td { padding: 8px 12px; text-align: center; border-bottom: 1px solid var(--border); }
+    .bt-table tr:nth-child(even) { background: var(--bg-tertiary); }
+    .bt-table tr:nth-child(odd) { background: var(--bg-secondary); }
+    .bt-table tr.highlight-row { border-left: 4px solid var(--cyan); }
+    .bt-section { margin-top: 24px; }
+    .bt-section-title { font-size: 14px; font-weight: 700; color: var(--cyan); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .bt-insight { background: var(--bg-tertiary); border-left: 3px solid var(--gold); padding: 12px 16px; border-radius: 6px; margin: 12px 0; font-size: 12px; line-height: 1.7; }
+    .bt-chart-wrap { height: 280px; position: relative; margin: 16px 0; }
+    .bt-methodology { background: rgba(57, 210, 192, 0.06); border: 1px solid var(--cyan); border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 12px; line-height: 1.7; }
+    @media (max-width: 768px) { .bt-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* Info tip tooltips */
+    .info-icon { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 50%; border: 1px solid var(--text-secondary); color: var(--text-secondary); font-size: 10px; font-weight: 700; margin-left: 6px; cursor: help; position: relative; vertical-align: middle; }
+    .info-icon:hover { border-color: var(--cyan); color: var(--cyan); }
+    .tooltip-wrapper { position: relative; display: inline-block; }
+    .tooltip-wrapper .tooltip { position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background: #000; color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 11px; line-height: 1.5; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity .2s; width: 280px; white-space: normal; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+    .tooltip-wrapper:hover .tooltip { opacity: 1; }
+    .tooltip-wrapper .tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #000; }
+
+    /* Enhanced signal display on metric cards */
+    .m-signal-badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.3px; }
+    .m-signal-badge.badge-green { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
+    .m-signal-badge.badge-blue { background: rgba(88, 166, 255, 0.15); color: #58a6ff; }
+    .m-signal-badge.badge-orange { background: rgba(210, 153, 34, 0.15); color: #d29922; }
+    .m-signal-badge.badge-red { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+    .m-signal-badge.badge-cyan { background: rgba(57, 210, 192, 0.15); color: #39d2c0; }
+    .m-signal-badge.badge-purple { background: rgba(188, 140, 255, 0.15); color: #bc8cff; }
+    .m-signal-badge.badge-gold { background: rgba(240, 180, 41, 0.15); color: #f0b429; }
+
+    /* Enhanced gauge signal display */
+    .gauge-signal { font-weight: 700; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="container">
+    <header>
+      <h1>🔭 Macro Regime Monitor v1.1 — The Telescope</h1>
+      <p>Macro regime analysis — yield curve, credit, real rates, volatility, dollar, commodities, historical backtest</p>
+    </header>
+
+    <div id="errorPanel"></div>
+
+    <div class="briefing-panel" id="briefingPanel">
+      <div class="briefing-header">
+        <div class="briefing-title">Macro Weather Briefing</div>
+        <button class="copy-btn" id="copyBriefingBtn">Copy Briefing</button>
+      </div>
+      <div class="status-tags" id="statusTags"></div>
+      <div class="briefing-content" id="briefingContent"></div>
+      <div class="veil-alignment" id="veilAlignment"></div>
+    </div>
+
+    <div class="alert-chips" id="alertChips"></div>
+
+    <div class="metrics-grid" id="metricsGrid"></div>
+
+    <div class="two-column">
+      <div class="gauges-column" id="gaugesColumn"></div>
+      <div class="scorecard-table">
+        <table id="scorecardTable"></table>
+      </div>
+    </div>
+
+    <div class="charts-grid" id="chartsGrid"></div>
+
+    <div class="tabs-container">
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="yield-curve">Yield Curve Deep Dive</button>
+        <button class="tab-btn" data-tab="credit">Credit & Risk Appetite</button>
+        <button class="tab-btn" data-tab="volatility">Volatility Analysis</button>
+        <button class="tab-btn" data-tab="playbook">Macro Playbook</button>
+        <button class="tab-btn" data-tab="backtest">Backtest & Validation</button>
+      </div>
+      <div class="tabs-content">
+        <div class="tab-panel active" id="yield-curve"></div>
+        <div class="tab-panel" id="credit"></div>
+        <div class="tab-panel" id="volatility"></div>
+        <div class="tab-panel" id="playbook"></div>
+        <div class="tab-panel" id="backtest"></div>
+      </div>
+    </div>
+
+    <div class="alloc-banner" id="allocBanner"></div>
+
+    <div class="disclaimer">
+      <strong>Disclaimer:</strong> This analysis is for informational and educational purposes only and does not constitute investment advice, a recommendation, or an offer to buy or sell any security. All data is sourced from public APIs and may contain errors or delays. Market analysis is subjective and past performance does not guarantee future results. Consult a qualified financial advisor before making investment decisions. This tool and its creators assume no liability for any trading or investment decisions made based on this analysis.
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'ywhLvpWMq_GQj0jmzz3zqxXYZd63b85x';
+    const TICKERS = ['SPY', 'TLT', 'SHY', 'IEF', 'HYG', 'LQD', 'GLD', 'UUP', 'CPER', 'DBC'];
+    const BASE_URL = 'https://api.polygon.io/v1/open-close';
+
+    let allData = {};
+    let analysis = {};
+    let historicalAnalysis = [];
+
+    async function fetchTicker(ticker) {
+      try {
+        const now = new Date();
+        const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000);
+        const startDate = twoYearsAgo.toISOString().split('T')[0];
+        const endDate = now.toISOString().split('T')[0];
+
+        const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?adjusted=true&sort=asc&limit=50000&apiKey=${API_KEY}`;
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`API error for ${ticker}`);
+
+        const data = await response.json();
+        if (!data.results || data.results.length === 0) throw new Error(`No data for ${ticker}`);
+
+        allData[ticker] = data.results.map(bar => ({
+          timestamp: bar.t,
+          close: bar.c,
+          high: bar.h,
+          low: bar.l,
+          volume: bar.v
+        }));
+      } catch (error) {
+        console.error(`Error fetching ${ticker}:`, error);
+        throw error;
+      }
+    }
+
+    function sma(prices, period) {
+      const result = [];
+      for (let i = 0; i < prices.length; i++) {
+        if (i < period - 1) {
+          result.push(null);
+        } else {
+          const sum = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+          result.push(sum / period);
+        }
+      }
+      return result;
+    }
+
+    function last(arr) {
+      return arr && arr.length > 0 ? arr[arr.length - 1] : null;
+    }
+
+    function nthLast(arr, n) {
+      return arr && arr.length > n ? arr[arr.length - 1 - n] : null;
+    }
+
+    function diff(current, previous) {
+      if (!current || !previous || previous === 0) return 0;
+      return ((current - previous) / Math.abs(previous)) * 100;
+    }
+
+    function divArrays(num, denom) {
+      return num.map((n, i) => n / (denom[i] || 1));
+    }
+
+    function percentileRank(value, history) {
+      const validHistory = history.filter(v => v !== null && !isNaN(v));
+      if (validHistory.length === 0) return 50;
+      const sorted = [...validHistory].sort((a, b) => a - b);
+      let count = 0;
+      for (const v of sorted) {
+        if (v <= value) count++;
+      }
+      return (count / sorted.length) * 100;
+    }
+
+    function realizedVol(closes, period = 21) {
+      const logReturns = [];
+      for (let i = 1; i < closes.length; i++) {
+        const ret = Math.log(closes[i] / closes[i - 1]);
+        logReturns.push(ret);
+      }
+
+      if (logReturns.length < period) return 0;
+
+      let annualizedVols = [];
+      for (let i = period - 1; i < logReturns.length; i++) {
+        const windowReturns = logReturns.slice(i - period + 1, i + 1);
+        const mean = windowReturns.reduce((a, b) => a + b, 0) / period;
+        const variance = windowReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+        const stddev = Math.sqrt(variance);
+        const annualVol = stddev * Math.sqrt(252) * 100;
+        annualizedVols.push(annualVol);
+      }
+
+      return last(annualizedVols) || 0;
+    }
+
+    function generateSparklineCanvas(values) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 200;
+      canvas.height = 30;
+      const ctx = canvas.getContext('2d');
+
+      const validValues = values.filter(v => v !== null && !isNaN(v));
+      if (validValues.length === 0) return canvas;
+
+      const minVal = Math.min(...validValues);
+      const maxVal = Math.max(...validValues);
+      const range = maxVal - minVal || 1;
+
+      ctx.strokeStyle = '#39d2c0';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+
+      validValues.forEach((val, idx) => {
+        const x = (idx / (validValues.length - 1)) * canvas.width;
+        const y = canvas.height - ((val - minVal) / range) * (canvas.height - 4) - 2;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+
+      ctx.stroke();
+      return canvas;
+    }
+
+    function analyzeAll() {
+      const closes = {
+        SPY: allData.SPY.map(b => b.close),
+        TLT: allData.TLT.map(b => b.close),
+        SHY: allData.SHY.map(b => b.close),
+        IEF: allData.IEF.map(b => b.close),
+        HYG: allData.HYG.map(b => b.close),
+        LQD: allData.LQD.map(b => b.close),
+        GLD: allData.GLD.map(b => b.close),
+        UUP: allData.UUP.map(b => b.close),
+        CPER: allData.CPER.map(b => b.close),
+        DBC: allData.DBC.map(b => b.close)
+      };
+
+      // Yield Curve Proxy
+      const yieldCurveRatio = divArrays(closes.TLT, closes.SHY);
+      const yieldCurveSMA = sma(yieldCurveRatio, 50);
+      const currentYC = last(yieldCurveRatio);
+      const ycChange10d = diff(currentYC, nthLast(yieldCurveRatio, 10));
+      const ycPercentile = percentileRank(currentYC, yieldCurveRatio.filter(v => !isNaN(v)));
+
+      // NOTE: High TLT/SHY = long bonds outperforming = yields falling on long end = FLAT curve (bearish)
+      //       Low TLT/SHY = short bonds outperforming = long yields rising = STEEP curve (bullish)
+      // Percentile mapping is INVERTED: high percentile = flat (bad), low percentile = steep (good)
+      let ycSignal;
+      if (ycPercentile > 80) ycSignal = 'Inverted/Flat';
+      else if (ycPercentile > 60) ycSignal = 'Flattening';
+      else if (ycPercentile > 40) ycSignal = 'Neutral';
+      else if (ycPercentile > 20) ycSignal = 'Normal';
+      else ycSignal = 'Steep';
+
+      // Rising TLT/SHY = long bonds gaining = curve flattening, falling = steepening
+      const ycTrend = ycChange10d < 0 ? 'Steepening' : (ycChange10d > 0.5 ? 'Flattening' : 'Stable');
+
+      // Credit Spread Proxy
+      const creditRatio = divArrays(closes.HYG, closes.LQD);
+      const creditSMA = sma(creditRatio, 50);
+      const currentCredit = last(creditRatio);
+      const creditChange30d = diff(currentCredit, nthLast(creditRatio, 30));
+      const creditAboveSMA = currentCredit > last(creditSMA);
+
+      let creditSignal;
+      if (creditChange30d < -3) creditSignal = 'Critical';
+      else if (currentCredit < last(creditSMA) && creditChange30d < 0) creditSignal = 'Stressed';
+      else if (currentCredit < last(creditSMA) && creditChange30d > 0) creditSignal = 'Recovering';
+      else if (currentCredit > last(creditSMA) && creditChange30d < 0) creditSignal = 'Watching';
+      else creditSignal = 'Healthy';
+
+      // Real Rate Proxy
+      const realRateRatio = divArrays(closes.TLT, closes.GLD);
+      const realRateChange30d = diff(last(realRateRatio), nthLast(realRateRatio, 30));
+
+      // NOTE: High TLT/GLD = bonds outperforming gold = real rates FALLING (bullish for equities)
+      //       Low TLT/GLD = gold outperforming bonds = real rates RISING (bearish, tightening)
+      // So rising TLT/GLD ratio = falling real rates, falling ratio = rising real rates
+      let rrSignal;
+      if (realRateChange30d > 2) rrSignal = 'Falling Real Rates';
+      else if (realRateChange30d < -2) rrSignal = 'Rising Real Rates';
+      else rrSignal = 'Stable Real Rates';
+
+      // Dollar Regime
+      const uupSMA = sma(closes.UUP, 50);
+      const currentUUP = last(closes.UUP);
+      const uupChange30d = diff(currentUUP, nthLast(closes.UUP, 30));
+      const uupAboveSMA = currentUUP > last(uupSMA);
+
+      let dollarSignal;
+      if (uupAboveSMA && uupChange30d > 0) dollarSignal = 'Strong Dollar';
+      else if (!uupAboveSMA && uupChange30d < 0) dollarSignal = 'Weak Dollar';
+      else dollarSignal = 'Dollar Neutral';
+
+      // Volatility Regime
+      const spyVol = realizedVol(closes.SPY, 21);
+      const spyVolHistory = [];
+      for (let i = 21; i < closes.SPY.length; i++) {
+        const windowCloses = closes.SPY.slice(i - 20, i + 1);
+        spyVolHistory.push(realizedVol(windowCloses, 21));
+      }
+      const volPercentile = percentileRank(spyVol, spyVolHistory);
+
+      let volSignal;
+      if (volPercentile < 25) volSignal = 'Low Vol';
+      else if (volPercentile < 50) volSignal = 'Normal Vol';
+      else if (volPercentile < 75) volSignal = 'Elevated Vol';
+      else volSignal = 'High Vol';
+
+      // Commodity Cycle
+      const dbcChange30d = diff(last(closes.DBC), nthLast(closes.DBC, 30));
+      const copperGoldRatio = divArrays(closes.CPER, closes.GLD);
+      const cgChange30d = diff(last(copperGoldRatio), nthLast(copperGoldRatio, 30));
+
+      let commoditySignal;
+      if (dbcChange30d > 0 && cgChange30d > 0) commoditySignal = 'Reflation';
+      else if (dbcChange30d < 0 && cgChange30d < 0) commoditySignal = 'Deflation';
+      else commoditySignal = 'Mixed Commodity Signals';
+
+      // Scoring function
+      function mapYCToScore(signal) {
+        const map = { 'Inverted/Flat': 10, 'Flattening': 30, 'Neutral': 50, 'Normal': 70, 'Steep': 85 };
+        return map[signal] || 50;
+      }
+
+      function mapCreditToScore(signal) {
+        const map = { 'Critical': 5, 'Stressed': 25, 'Watching': 45, 'Recovering': 60, 'Healthy': 85 };
+        return map[signal] || 50;
+      }
+
+      function mapRRToScore(signal) {
+        const map = { 'Rising Real Rates': 30, 'Stable Real Rates': 55, 'Falling Real Rates': 70 };
+        return map[signal] || 50;
+      }
+
+      function mapDollarToScore(signal) {
+        const map = { 'Strong Dollar': 30, 'Dollar Neutral': 50, 'Weak Dollar': 75 };
+        return map[signal] || 50;
+      }
+
+      function mapVolToScore(signal) {
+        const map = { 'High Vol': 15, 'Elevated Vol': 35, 'Normal Vol': 65, 'Low Vol': 80 };
+        return map[signal] || 50;
+      }
+
+      function mapCommodityToScore(signal) {
+        const map = { 'Deflation': 20, 'Mixed Commodity Signals': 50, 'Reflation': 80 };
+        return map[signal] || 50;
+      }
+
+      const ycScore = mapYCToScore(ycSignal);
+      const creditScore = mapCreditToScore(creditSignal);
+      const rrScore = mapRRToScore(rrSignal);
+      const dollarScore = mapDollarToScore(dollarSignal);
+      const volScore = mapVolToScore(volSignal);
+      const commodityScore = mapCommodityToScore(commoditySignal);
+
+      const macroWeatherScore = ycScore * 0.20 + creditScore * 0.25 + rrScore * 0.10 + dollarScore * 0.15 + volScore * 0.20 + commodityScore * 0.10;
+
+      let macroWeatherLabel;
+      let macroWeatherClass;
+      if (macroWeatherScore >= 75) {
+        macroWeatherLabel = 'Sunny';
+        macroWeatherClass = 'sunny';
+      } else if (macroWeatherScore >= 55) {
+        macroWeatherLabel = 'Partly Cloudy';
+        macroWeatherClass = 'partly-cloudy';
+      } else if (macroWeatherScore >= 40) {
+        macroWeatherLabel = 'Overcast';
+        macroWeatherClass = 'overcast';
+      } else {
+        macroWeatherLabel = 'Stormy';
+        macroWeatherClass = 'stormy';
+      }
+
+      // Historical macro weather
+      const historyLength = Math.min(20, closes.SPY.length);
+      historicalAnalysis = [];
+      for (let offset = historyLength; offset > 0; offset--) {
+        const offsetYC = nthLast(yieldCurveRatio, offset);
+        const offsetCredit = nthLast(creditRatio, offset);
+        const offsetRR = nthLast(realRateRatio, offset);
+        const offsetUUP = nthLast(closes.UUP, offset);
+
+        // Inverted mapping: high TLT/SHY percentile = flat curve (bad)
+        const offsetYCPct = offsetYC ? percentileRank(offsetYC, yieldCurveRatio.filter(v => !isNaN(v))) : 50;
+        const offsetYCScore = mapYCToScore(
+          offsetYCPct > 80 ? 'Inverted/Flat' :
+          offsetYCPct > 60 ? 'Flattening' :
+          offsetYCPct > 40 ? 'Neutral' :
+          offsetYCPct > 20 ? 'Normal' : 'Steep'
+        );
+
+        const offsetCreditScore = offsetCredit ? mapCreditToScore(
+          offsetCredit < nthLast(creditSMA, offset) ? 'Stressed' : 'Healthy'
+        ) : 50;
+
+        const offsetScore = offsetYCScore * 0.20 + offsetCreditScore * 0.25 + 50 * 0.55;
+        historicalAnalysis.push(offsetScore);
+      }
+      historicalAnalysis = historicalAnalysis.reverse();
+
+      return {
+        yieldCurveRatio: currentYC,
+        yieldCurveSMA: last(yieldCurveSMA),
+        yieldCurveSignal: ycSignal,
+        yieldCurveTrend: ycTrend,
+        yieldCurve10d: ycChange10d,
+        yieldCurvePercentile: ycPercentile,
+        yieldCurveHistory: yieldCurveRatio,
+
+        creditRatio: currentCredit,
+        creditSMA: last(creditSMA),
+        creditSignal: creditSignal,
+        creditChange30d: creditChange30d,
+        creditHistory: creditRatio,
+
+        realRateRatio: last(realRateRatio),
+        realRateChange30d: realRateChange30d,
+        realRateSignal: rrSignal,
+
+        uupPrice: currentUUP,
+        uupSMA: last(uupSMA),
+        uupChange30d: uupChange30d,
+        dollarSignal: dollarSignal,
+
+        spyVol: spyVol,
+        volSignal: volSignal,
+        volPercentile: volPercentile,
+        volHistory: spyVolHistory,
+
+        dbcChange30d: dbcChange30d,
+        copperGoldRatio: last(copperGoldRatio),
+        cgChange30d: cgChange30d,
+        commoditySignal: commoditySignal,
+
+        macroWeatherScore: macroWeatherScore,
+        macroWeatherLabel: macroWeatherLabel,
+        macroWeatherClass: macroWeatherClass,
+
+        yieldCurveScore: ycScore,
+        creditScore: creditScore,
+        realRateScore: rrScore,
+        dollarScore: dollarScore,
+        volScore: volScore,
+        commodityScore: commodityScore,
+
+        ycPercentile: ycPercentile,
+        spyVolHistory: spyVolHistory
+      };
+    }
+
+    // ═══════════════════════════════════════
+    // BACKTEST ENGINE
+    // ═══════════════════════════════════════
+    let backtestResults = null;
+
+    function runBacktest() {
+      const closes = {
+        SPY: allData.SPY.map(b => b.close),
+        TLT: allData.TLT.map(b => b.close),
+        SHY: allData.SHY.map(b => b.close),
+        IEF: allData.IEF.map(b => b.close),
+        HYG: allData.HYG.map(b => b.close),
+        LQD: allData.LQD.map(b => b.close),
+        GLD: allData.GLD.map(b => b.close),
+        UUP: allData.UUP.map(b => b.close),
+        CPER: allData.CPER.map(b => b.close),
+        DBC: allData.DBC.map(b => b.close)
+      };
+
+      const dates = allData.SPY.map(b => b.date || new Date(b.t));
+      const minLen = Math.min(...Object.values(closes).map(c => c.length));
+
+      // Trim all to common length
+      Object.keys(closes).forEach(k => { closes[k] = closes[k].slice(-minLen); });
+      const trimmedDates = dates.slice(-minLen);
+
+      // Precompute full-length ratios and SMAs
+      const ycRatioFull = closes.TLT.map((v, i) => closes.SHY[i] !== 0 ? v / closes.SHY[i] : null);
+      const creditRatioFull = closes.HYG.map((v, i) => closes.LQD[i] !== 0 ? v / closes.LQD[i] : null);
+      const rrRatioFull = closes.TLT.map((v, i) => closes.GLD[i] !== 0 ? v / closes.GLD[i] : null);
+      const cgRatioFull = closes.CPER.map((v, i) => closes.GLD[i] !== 0 ? v / closes.GLD[i] : null);
+
+      // 50-day SMAs
+      const creditSmaFull = sma(creditRatioFull, 50);
+      const uupSmaFull = sma(closes.UUP, 50);
+
+      // We need at least 252 days (1 year) of lookback for percentile calculations + 63 days forward for 3-month returns
+      const startIdx = 252; // need 1yr lookback
+      const endIdx = minLen - 63; // need 3 months forward
+
+      if (endIdx <= startIdx) {
+        backtestResults = null;
+        return;
+      }
+
+      // Score mapping functions (same as analyzeAll)
+      const ycScoreMap = { 'Inverted/Flat': 10, 'Flattening': 30, 'Neutral': 50, 'Normal': 70, 'Steep': 85 };
+      const creditScoreMap = { 'Critical': 5, 'Stressed': 25, 'Watching': 45, 'Recovering': 60, 'Healthy': 85 };
+      const rrScoreMap = { 'Rising Real Rates': 30, 'Stable Real Rates': 55, 'Falling Real Rates': 70 };
+      const dollarScoreMap = { 'Strong Dollar': 30, 'Dollar Neutral': 50, 'Weak Dollar': 75 };
+      const volScoreMap = { 'High Vol': 15, 'Elevated Vol': 35, 'Normal Vol': 65, 'Low Vol': 80 };
+      const commodityScoreMap = { 'Deflation': 20, 'Mixed Commodity Signals': 50, 'Reflation': 80 };
+
+      const dailyScores = []; // { idx, date, score, label, spy1m, spy3m }
+
+      for (let i = startIdx; i < endIdx; i++) {
+        // Yield curve percentile (1-year lookback)
+        const ycNow = ycRatioFull[i];
+        const ycLookback = ycRatioFull.slice(i - 252, i).filter(v => v !== null && !isNaN(v));
+        const ycPct = ycLookback.length > 0 ? percentileRank(ycNow, ycLookback) : 50;
+        // Inverted mapping: high TLT/SHY percentile = flat curve (bad)
+        let ycSig;
+        if (ycPct > 80) ycSig = 'Inverted/Flat';
+        else if (ycPct > 60) ycSig = 'Flattening';
+        else if (ycPct > 40) ycSig = 'Neutral';
+        else if (ycPct > 20) ycSig = 'Normal';
+        else ycSig = 'Steep';
+
+        // Credit signal
+        const creditNow = creditRatioFull[i];
+        const creditSmaNow = creditSmaFull[i];
+        const credit30ago = i >= 30 ? creditRatioFull[i - 30] : creditNow;
+        const creditChg = creditNow && credit30ago ? ((creditNow - credit30ago) / credit30ago) * 100 : 0;
+        let creditSig;
+        if (creditChg < -3) creditSig = 'Critical';
+        else if (creditNow < creditSmaNow && creditChg < 0) creditSig = 'Stressed';
+        else if (creditNow < creditSmaNow && creditChg >= 0) creditSig = 'Recovering';
+        else if (creditNow >= creditSmaNow && creditChg < 0) creditSig = 'Watching';
+        else creditSig = 'Healthy';
+
+        // Real rate signal
+        const rrNow = rrRatioFull[i];
+        const rr30ago = i >= 30 ? rrRatioFull[i - 30] : rrNow;
+        const rrChg = rrNow && rr30ago ? ((rrNow - rr30ago) / rr30ago) * 100 : 0;
+        // Inverted: rising TLT/GLD = falling real rates (bullish)
+        let rrSig;
+        if (rrChg > 2) rrSig = 'Falling Real Rates';
+        else if (rrChg < -2) rrSig = 'Rising Real Rates';
+        else rrSig = 'Stable Real Rates';
+
+        // Dollar signal
+        const uupNow = closes.UUP[i];
+        const uupSmaNow = uupSmaFull[i];
+        const uup30ago = i >= 30 ? closes.UUP[i - 30] : uupNow;
+        const uupChg = uupNow && uup30ago ? uupNow - uup30ago : 0;
+        let dollarSig;
+        if (uupNow > uupSmaNow && uupChg > 0) dollarSig = 'Strong Dollar';
+        else if (uupNow < uupSmaNow && uupChg < 0) dollarSig = 'Weak Dollar';
+        else dollarSig = 'Dollar Neutral';
+
+        // Vol signal (21-day realized vol percentile)
+        let volSig = 'Normal Vol';
+        if (i >= 21) {
+          const logRets = [];
+          for (let k = i - 20; k <= i; k++) {
+            if (closes.SPY[k] > 0 && closes.SPY[k-1] > 0) {
+              logRets.push(Math.log(closes.SPY[k] / closes.SPY[k-1]));
+            }
+          }
+          if (logRets.length > 5) {
+            const mean = logRets.reduce((a,b) => a+b, 0) / logRets.length;
+            const variance = logRets.reduce((s,v) => s + (v - mean) ** 2, 0) / logRets.length;
+            const currentVol = Math.sqrt(variance) * Math.sqrt(252) * 100;
+            // Compute vol history for percentile
+            const volHist = [];
+            for (let j = Math.max(21, i - 252); j <= i; j++) {
+              const lr = [];
+              for (let k = j - 20; k <= j; k++) {
+                if (closes.SPY[k] > 0 && closes.SPY[k-1] > 0) lr.push(Math.log(closes.SPY[k] / closes.SPY[k-1]));
+              }
+              if (lr.length > 5) {
+                const m = lr.reduce((a,b) => a+b, 0) / lr.length;
+                const v = lr.reduce((s,x) => s + (x - m) ** 2, 0) / lr.length;
+                volHist.push(Math.sqrt(v) * Math.sqrt(252) * 100);
+              }
+            }
+            const vPct = volHist.length > 0 ? percentileRank(currentVol, volHist) : 50;
+            if (vPct < 25) volSig = 'Low Vol';
+            else if (vPct < 50) volSig = 'Normal Vol';
+            else if (vPct < 75) volSig = 'Elevated Vol';
+            else volSig = 'High Vol';
+          }
+        }
+
+        // Commodity signal
+        const dbcNow = closes.DBC[i];
+        const dbc30ago = i >= 30 ? closes.DBC[i - 30] : dbcNow;
+        const dbcChg = dbcNow && dbc30ago ? dbcNow - dbc30ago : 0;
+        const cgNow = cgRatioFull[i];
+        const cg30ago = i >= 30 ? cgRatioFull[i - 30] : cgNow;
+        const cgChg = cgNow && cg30ago ? cgNow - cg30ago : 0;
+        let commSig;
+        if (dbcChg > 0 && cgChg > 0) commSig = 'Reflation';
+        else if (dbcChg < 0 && cgChg < 0) commSig = 'Deflation';
+        else commSig = 'Mixed Commodity Signals';
+
+        // Composite score
+        const score = (ycScoreMap[ycSig] || 50) * 0.20
+                   + (creditScoreMap[creditSig] || 50) * 0.25
+                   + (rrScoreMap[rrSig] || 50) * 0.10
+                   + (dollarScoreMap[dollarSig] || 50) * 0.15
+                   + (volScoreMap[volSig] || 50) * 0.20
+                   + (commodityScoreMap[commSig] || 50) * 0.10;
+
+        let label;
+        if (score >= 75) label = 'Sunny';
+        else if (score >= 55) label = 'Partly Cloudy';
+        else if (score >= 40) label = 'Overcast';
+        else label = 'Stormy';
+
+        // Forward SPY returns
+        const spy1mIdx = Math.min(i + 21, minLen - 1);
+        const spy3mIdx = Math.min(i + 63, minLen - 1);
+        const spy1m = ((closes.SPY[spy1mIdx] - closes.SPY[i]) / closes.SPY[i]) * 100;
+        const spy3m = ((closes.SPY[spy3mIdx] - closes.SPY[i]) / closes.SPY[i]) * 100;
+
+        // Max drawdown in next 3 months
+        let maxDD = 0;
+        let peak = closes.SPY[i];
+        for (let j = i + 1; j <= spy3mIdx; j++) {
+          if (closes.SPY[j] > peak) peak = closes.SPY[j];
+          const dd = ((closes.SPY[j] - peak) / peak) * 100;
+          if (dd < maxDD) maxDD = dd;
+        }
+
+        dailyScores.push({
+          idx: i,
+          date: trimmedDates[i],
+          score: Math.round(score),
+          label,
+          spy1m: spy1m,
+          spy3m: spy3m,
+          maxDD: maxDD
+        });
+      }
+
+      // Aggregate by weather state
+      const states = ['Sunny', 'Partly Cloudy', 'Overcast', 'Stormy'];
+      const stateResults = {};
+      states.forEach(state => {
+        const entries = dailyScores.filter(d => d.label === state);
+        if (entries.length === 0) {
+          stateResults[state] = { count: 0, avg1m: 0, avg3m: 0, winRate1m: 0, winRate3m: 0, avgMaxDD: 0, median1m: 0, median3m: 0 };
+          return;
+        }
+        const returns1m = entries.map(e => e.spy1m);
+        const returns3m = entries.map(e => e.spy3m);
+        const maxDDs = entries.map(e => e.maxDD);
+
+        const avg = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
+        const median = arr => { const s = [...arr].sort((a,b) => a-b); const m = Math.floor(s.length/2); return s.length % 2 ? s[m] : (s[m-1]+s[m])/2; };
+
+        stateResults[state] = {
+          count: entries.length,
+          avg1m: avg(returns1m),
+          avg3m: avg(returns3m),
+          median1m: median(returns1m),
+          median3m: median(returns3m),
+          winRate1m: (returns1m.filter(r => r > 0).length / returns1m.length) * 100,
+          winRate3m: (returns3m.filter(r => r > 0).length / returns3m.length) * 100,
+          avgMaxDD: avg(maxDDs),
+          best3m: Math.max(...returns3m),
+          worst3m: Math.min(...returns3m)
+        };
+      });
+
+      // Regime transition analysis
+      const transitions = [];
+      for (let i = 1; i < dailyScores.length; i++) {
+        if (dailyScores[i].label !== dailyScores[i-1].label) {
+          transitions.push({
+            from: dailyScores[i-1].label,
+            to: dailyScores[i].label,
+            date: dailyScores[i].date,
+            idx: i
+          });
+        }
+      }
+
+      // Find SPY drawdowns > 5% and check if Weather predicted them
+      const drawdowns = [];
+      let ddPeak = closes.SPY[startIdx];
+      let ddPeakIdx = startIdx;
+      for (let i = startIdx + 1; i < minLen; i++) {
+        if (closes.SPY[i] > ddPeak) { ddPeak = closes.SPY[i]; ddPeakIdx = i; }
+        const dd = ((closes.SPY[i] - ddPeak) / ddPeak) * 100;
+        if (dd < -5) {
+          // Find what Weather said 20 days before the peak
+          const lookbackIdx = Math.max(0, ddPeakIdx - 20 - startIdx);
+          const weatherBefore = lookbackIdx < dailyScores.length ? dailyScores[lookbackIdx] : null;
+          const alreadyTracked = drawdowns.find(d => Math.abs(d.peakIdx - ddPeakIdx) < 30);
+          if (!alreadyTracked) {
+            drawdowns.push({
+              peakIdx: ddPeakIdx,
+              troughDD: dd,
+              weatherBefore: weatherBefore ? weatherBefore.label : 'N/A',
+              weatherScore: weatherBefore ? weatherBefore.score : 50,
+              predicted: weatherBefore ? (weatherBefore.score < 55) : false
+            });
+          }
+          // Update to track worst point of this drawdown
+          const existing = drawdowns.find(d => Math.abs(d.peakIdx - ddPeakIdx) < 30);
+          if (existing && dd < existing.troughDD) existing.troughDD = dd;
+        }
+      }
+
+      // Score time series for chart
+      const scoreTimeSeries = dailyScores.map(d => ({ date: d.date, score: d.score }));
+
+      // Overall stats
+      const totalDays = dailyScores.length;
+      const avgScore = dailyScores.reduce((s, d) => s + d.score, 0) / totalDays;
+      const sunnyPct = (stateResults['Sunny'].count / totalDays) * 100;
+      const stormyPct = (stateResults['Stormy'].count / totalDays) * 100;
+      const predictedDrawdowns = drawdowns.filter(d => d.predicted).length;
+      const totalDrawdowns = drawdowns.length;
+
+      backtestResults = {
+        dailyScores,
+        stateResults,
+        transitions,
+        drawdowns,
+        scoreTimeSeries,
+        totalDays,
+        avgScore,
+        sunnyPct,
+        stormyPct,
+        predictedDrawdowns,
+        totalDrawdowns,
+        dataRange: {
+          start: trimmedDates[startIdx],
+          end: trimmedDates[endIdx]
+        }
+      };
+    }
+
+    function generateBriefing() {
+      const a = analysis;
+
+      const stance = a.macroWeatherScore >= 75
+        ? "Macro backdrop is supportive for risk assets — low real rates, healthy credit spreads, and contained volatility favor equities."
+        : a.macroWeatherScore >= 55
+        ? "Macro backdrop shows mixed signals — some tailwinds but also headwinds to monitor. Selective risk positioning advised."
+        : a.macroWeatherScore >= 40
+        ? "Macro backdrop is cautious — multiple headwinds (tightening yields, credit stress, vol elevation) warrant defensive positioning."
+        : "Macro backdrop is challenging — strong structural headwinds suggest reducing risk exposure and raising cash/hedges.";
+
+      const ycCredit = `Yield curve is ${a.yieldCurveTrend.toLowerCase()} (${a.yieldCurveSignal}) and credit spreads show ${a.creditSignal.toLowerCase()} conditions. ${a.creditChange30d > 0 ? 'Risk appetite improving.' : 'Risk appetite deteriorating.'}`;
+
+      const volText = `Volatility regime is ${a.volSignal.toLowerCase()} (${a.volPercentile.toFixed(0)}th percentile). ${a.volSignal === 'Low Vol' ? 'Complacency may present opportunity.' : a.volSignal === 'High Vol' ? 'Market stress may create dislocation opportunities.' : 'Normal conditions — no vol extremes.'}`;
+
+      const dollarCommodity = `Dollar is ${a.dollarSignal.toLowerCase()} and commodities show ${a.commoditySignal.toLowerCase()} signals. ${a.dollarSignal === 'Weak Dollar' ? 'Favorable for commodity-linked assets.' : 'May headwind commodity-sensitive sectors.'}`;
+
+      const keyWatch = a.macroWeatherScore < 40
+        ? "Monitor credit spreads closely for further widening — this would signal rising recession risk."
+        : a.volPercentile > 75
+        ? "Watch for vol spike — if combined with credit weakness, tactical reduction may be warranted."
+        : a.yieldCurveTrend === 'Flattening'
+        ? "Track yield curve flattening — could signal tightening cycle is slowing growth."
+        : "Monitor real rate trends — shifts here could alter duration and equity valuations significantly.";
+
+      return {
+        stance,
+        ycCredit,
+        volText,
+        dollarCommodity,
+        keyWatch
+      };
+    }
+
+    function renderBriefing() {
+      const briefing = generateBriefing();
+      const a = analysis;
+
+      const statusTagsHTML = `
+        <span class="status-tag ${a.macroWeatherClass}">${a.macroWeatherLabel}</span>
+        <span class="status-tag ${a.yieldCurveSignal === 'Inverted/Flat' ? 'stormy' : a.yieldCurveSignal === 'Flattening' ? 'overcast' : a.yieldCurveSignal === 'Neutral' ? 'partly-cloudy' : 'sunny'}">${a.yieldCurveSignal}</span>
+        <span class="status-tag ${a.creditSignal === 'Critical' ? 'stormy' : a.creditSignal === 'Stressed' ? 'overcast' : a.creditSignal === 'Watching' ? 'partly-cloudy' : 'sunny'}">${a.creditSignal}</span>
+        <span class="status-tag ${a.volSignal === 'High Vol' ? 'stormy' : a.volSignal === 'Elevated Vol' ? 'overcast' : a.volSignal === 'Normal Vol' ? 'partly-cloudy' : 'sunny'}">${a.volSignal}</span>
+        <span class="status-tag ${a.dollarSignal === 'Strong Dollar' ? 'overcast' : a.dollarSignal === 'Weak Dollar' ? 'sunny' : 'partly-cloudy'}">${a.dollarSignal}</span>
+        <span class="status-tag ${a.commoditySignal === 'Reflation' ? 'sunny' : a.commoditySignal === 'Deflation' ? 'overcast' : 'partly-cloudy'}">${a.commoditySignal}</span>
+      `;
+
+      const briefingContentHTML = `
+        <div class="briefing-bullet"><strong>Macro Stance:</strong> ${briefing.stance}</div>
+        <div class="briefing-bullet"><strong>Yield Curve & Credit:</strong> ${briefing.ycCredit}</div>
+        <div class="briefing-bullet"><strong>Volatility Regime:</strong> ${briefing.volText}</div>
+        <div class="briefing-bullet"><strong>Dollar & Commodities:</strong> ${briefing.dollarCommodity}</div>
+        <div class="briefing-bullet"><strong>Key Watch Item:</strong> ${briefing.keyWatch}</div>
+      `;
+
+      let veilText, veilClass;
+      if (a.macroWeatherScore >= 55) {
+        veilText = "✓ Confirming equity bullishness — macro regime supports risk-on positioning";
+        veilClass = "confirming";
+      } else if (a.macroWeatherScore < 40) {
+        veilText = "⚠ Diverging — macro headwinds suggest caution on broad equity exposure";
+        veilClass = "diverging";
+      } else {
+        veilText = "≈ Mixed — monitor key macro levels closely before tactical decisions";
+        veilClass = "mixed";
+      }
+
+      document.getElementById('statusTags').innerHTML = statusTagsHTML;
+      document.getElementById('briefingContent').innerHTML = briefingContentHTML;
+      document.getElementById('veilAlignment').className = `veil-alignment ${veilClass}`;
+      document.getElementById('veilAlignment').innerHTML = veilText;
+
+      const copyBtnText = document.getElementById('briefingContent').innerText + '\n\n' + veilText;
+      document.getElementById('copyBriefingBtn').addEventListener('click', () => {
+        navigator.clipboard.writeText(copyBtnText);
+        const originalText = document.getElementById('copyBriefingBtn').innerText;
+        document.getElementById('copyBriefingBtn').innerText = 'Copied!';
+        setTimeout(() => {
+          document.getElementById('copyBriefingBtn').innerText = originalText;
+        }, 2000);
+      });
+    }
+
+    function renderAlerts() {
+      const alerts = [];
+      const a = analysis;
+
+      if (a.creditSignal === 'Critical' || a.creditSignal === 'Stressed') {
+        alerts.push('⚠ Credit stress detected — watch for contagion');
+      }
+      if (a.volPercentile > 75) {
+        alerts.push('⚠ Elevated volatility — potential tactical opportunity');
+      }
+      if (a.yieldCurveSignal === 'Inverted/Flat') {
+        alerts.push('⚠ Inverted/flat yield curve — recessionary signal');
+      }
+      if (a.dollarSignal === 'Strong Dollar' && a.uupChange30d > 3) {
+        alerts.push('⚠ Strong dollar surge — headwind for exports');
+      }
+      if (a.commoditySignal === 'Deflation') {
+        alerts.push('⚠ Commodity deflation — economic slowdown signal');
+      }
+
+      const alertHTML = alerts.length > 0
+        ? alerts.map(alert => `<div class="alert-chip">${alert}</div>`).join('')
+        : '';
+
+      document.getElementById('alertChips').innerHTML = alertHTML;
+    }
+
+    function tip(label, text) {
+      return `<span class="tooltip-wrapper"><span class="info-icon">ⓘ</span><span class="tooltip">${text}</span></span>`;
+    }
+
+    function signalBadge(text, badgeClass) {
+      return `<span class="m-signal-badge ${badgeClass}">${text}</span>`;
+    }
+
+    function renderMetrics() {
+      const a = analysis;
+
+      const weatherBadge = a.macroWeatherScore >= 75 ? 'badge-green' : a.macroWeatherScore >= 55 ? 'badge-blue' : a.macroWeatherScore >= 40 ? 'badge-orange' : 'badge-red';
+      const creditBadge = a.creditSignal === 'Healthy' ? 'badge-green' : a.creditSignal === 'Recovering' ? 'badge-blue' : a.creditSignal === 'Watching' ? 'badge-orange' : 'badge-red';
+      const ycBadge = (a.yieldCurveSignal === 'Steep' || a.yieldCurveSignal === 'Normal') ? 'badge-green' : a.yieldCurveSignal === 'Neutral' ? 'badge-blue' : a.yieldCurveSignal === 'Flattening' ? 'badge-orange' : 'badge-red';
+      const volBadge = a.volSignal === 'Low Vol' ? 'badge-green' : a.volSignal === 'Normal Vol' ? 'badge-cyan' : a.volSignal === 'Elevated Vol' ? 'badge-orange' : 'badge-red';
+      const dollarBadge = a.dollarSignal === 'Weak Dollar' ? 'badge-green' : a.dollarSignal === 'Dollar Neutral' ? 'badge-gold' : 'badge-red';
+      const commBadge = a.commoditySignal === 'Reflation' ? 'badge-green' : a.commoditySignal === 'Mixed Commodity Signals' ? 'badge-purple' : 'badge-red';
+
+      const metricsHTML = `
+        <div class="metric-card">
+          <div class="m-label">Macro Weather Score ${tip('', 'Weighted composite of all 6 indicators (0–100). Sunny (75+) = risk-on conditions. Stormy (<40) = defensive posture. Think of it as a single number that summarizes the entire macro backdrop.')}</div>
+          <div class="m-value" style="color: ${a.macroWeatherScore >= 75 ? '#3fb950' : a.macroWeatherScore >= 55 ? '#58a6ff' : a.macroWeatherScore >= 40 ? '#d29922' : '#f85149'};">
+            ${a.macroWeatherScore.toFixed(0)}
+          </div>
+          <div class="m-sub">${signalBadge(a.macroWeatherLabel, weatherBadge)}</div>
+          <div class="sparkline-container" id="weatherSparkline"></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="m-label">Yield Curve Signal ${tip('', 'Measures the slope of the yield curve via TLT/SHY ratio. A steep curve (low ratio) means long-term rates are higher than short-term — healthy growth ahead. Flat or inverted (high ratio) warns of recession risk.')}</div>
+          <div class="m-value">${signalBadge(a.yieldCurveSignal, ycBadge)}</div>
+          <div class="m-sub">${a.yieldCurveTrend} • ${a.yieldCurve10d > 0 ? '+' : ''}${a.yieldCurve10d.toFixed(2)}% (10d)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="m-label">Credit Health ${tip('', 'Tracks the HYG/LQD ratio (high-yield vs investment-grade bonds). When junk bonds outperform, investors are confident and spreads are tight — risk-on. When this drops, it signals credit stress and potential contagion.')}</div>
+          <div class="m-value">${signalBadge(a.creditSignal, creditBadge)}</div>
+          <div class="m-sub">${a.creditChange30d > 0 ? '+' : ''}${a.creditChange30d.toFixed(2)}% (30d)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="m-label">Vol Regime ${tip('', 'SPY 21-day realized volatility ranked against the past year. Low vol = calm markets, investor confidence. High vol = fear and uncertainty. Extreme readings often create tactical opportunities.')}</div>
+          <div class="m-value">${signalBadge(a.volSignal, volBadge)}</div>
+          <div class="m-sub">${a.spyVol.toFixed(1)}% • ${a.volPercentile.toFixed(0)}th percentile</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="m-label">Dollar Regime ${tip('', 'Tracks the US dollar via UUP ETF relative to its 50-day average. A strong dollar tightens global financial conditions and hurts exports/commodities. A weak dollar is generally bullish for risk assets and emerging markets.')}</div>
+          <div class="m-value">${signalBadge(a.dollarSignal, dollarBadge)}</div>
+          <div class="m-sub">${a.uupChange30d > 0 ? '+' : ''}${a.uupChange30d.toFixed(2)}% (30d)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="m-label">Commodity Cycle ${tip('', 'Combines DBC (broad commodities) and CPER/GLD (copper-to-gold ratio). Rising commodities + rising copper/gold = Reflation (economic expansion). Both falling = Deflation risk. This gauges the real economy.')}</div>
+          <div class="m-value">${signalBadge(a.commoditySignal, commBadge)}</div>
+          <div class="m-sub">${a.dbcChange30d > 0 ? '+' : ''}${a.dbcChange30d.toFixed(2)}% DBC (30d)</div>
+        </div>
+      `;
+
+      document.getElementById('metricsGrid').innerHTML = metricsHTML;
+
+      const weatherCanvas = generateSparklineCanvas(historicalAnalysis);
+      document.getElementById('weatherSparkline').appendChild(weatherCanvas);
+    }
+
+    function renderGauges() {
+      const a = analysis;
+
+      const gaugeTips = {
+        'Yield Curve': 'Bar shows TLT/SHY percentile rank. Low = steep curve (bullish). High = flat/inverted (bearish recession warning). The score feeds into your Macro Weather with 20% weight.',
+        'Credit Spread': 'Score based on HYG/LQD ratio health. High scores mean tight spreads and risk appetite. Low scores mean credit stress is building. 25% weight — the single heaviest indicator.',
+        'Real Rates': 'Based on TLT/GLD 30-day change. Rising real rates (gold outperforming bonds) tighten conditions. Falling real rates (bonds outperforming gold) are supportive for equities. 10% weight.',
+        'Volatility': 'SPY 21-day realized vol percentile mapped to a score. Low vol scores high (calm = bullish). High vol scores low (fear = bearish). 20% weight in Macro Weather.',
+        'Dollar Index': 'UUP price vs its 50-day SMA. A weakening dollar (high score) loosens global conditions. A strengthening dollar (low score) tightens them. 15% weight.',
+        'Commodities': 'Combines DBC trend and copper/gold ratio. Reflation = both rising (high score, expansion). Deflation = both falling (low score, contraction). 10% weight.'
+      };
+
+      const gauges = [
+        {
+          name: 'Yield Curve',
+          value: a.ycPercentile,
+          signal: a.yieldCurveSignal,
+          change: a.yieldCurve10d,
+          color: a.ycPercentile < 40 ? 'green' : a.ycPercentile < 60 ? 'blue' : 'red',
+          signalColor: (a.yieldCurveSignal === 'Steep' || a.yieldCurveSignal === 'Normal') ? '#3fb950' : a.yieldCurveSignal === 'Neutral' ? '#58a6ff' : a.yieldCurveSignal === 'Flattening' ? '#d29922' : '#f85149'
+        },
+        {
+          name: 'Credit Spread',
+          value: a.creditScore,
+          signal: a.creditSignal,
+          change: a.creditChange30d,
+          color: a.creditScore > 70 ? 'green' : a.creditScore > 50 ? 'blue' : a.creditScore > 25 ? 'orange' : 'red',
+          signalColor: a.creditSignal === 'Healthy' ? '#3fb950' : a.creditSignal === 'Recovering' ? '#58a6ff' : a.creditSignal === 'Watching' ? '#d29922' : '#f85149'
+        },
+        {
+          name: 'Real Rates',
+          value: a.realRateScore,
+          signal: a.realRateSignal,
+          change: a.realRateChange30d,
+          color: a.realRateScore > 55 ? 'green' : a.realRateScore < 40 ? 'red' : 'blue',
+          signalColor: a.realRateSignal.includes('Falling') ? '#3fb950' : a.realRateSignal.includes('Rising') ? '#f85149' : '#58a6ff'
+        },
+        {
+          name: 'Volatility',
+          value: a.volScore,
+          signal: a.volSignal,
+          change: a.volPercentile - 50,
+          color: a.volScore > 65 ? 'green' : a.volScore > 50 ? 'blue' : 'orange',
+          signalColor: a.volSignal === 'Low Vol' ? '#3fb950' : a.volSignal === 'Normal Vol' ? '#39d2c0' : a.volSignal === 'Elevated Vol' ? '#d29922' : '#f85149'
+        },
+        {
+          name: 'Dollar Index',
+          value: a.dollarScore,
+          signal: a.dollarSignal,
+          change: a.uupChange30d,
+          color: a.dollarScore > 60 ? 'red' : a.dollarScore > 40 ? 'blue' : 'green',
+          signalColor: a.dollarSignal === 'Weak Dollar' ? '#3fb950' : a.dollarSignal === 'Dollar Neutral' ? '#f0b429' : '#f85149'
+        },
+        {
+          name: 'Commodities',
+          value: a.commodityScore,
+          signal: a.commoditySignal,
+          change: a.dbcChange30d,
+          color: a.commodityScore > 60 ? 'green' : a.commodityScore > 40 ? 'blue' : 'red',
+          signalColor: a.commoditySignal === 'Reflation' ? '#3fb950' : a.commoditySignal === 'Mixed Commodity Signals' ? '#bc8cff' : '#f85149'
+        }
+      ];
+
+      let gaugesHTML = '';
+      gauges.forEach(g => {
+        gaugesHTML += `
+          <div class="gauge-container">
+            <div class="gauge-header">
+              <span class="gauge-label">${g.name} ${tip('', gaugeTips[g.name])}</span>
+              <span class="gauge-signal" style="color: ${g.signalColor};">${g.signal}</span>
+            </div>
+            <div class="gauge-bar-wrapper">
+              <div class="gauge-bar ${g.color}" style="width: ${g.value}%; min-width: 2px;">
+                ${g.value > 10 ? g.value.toFixed(0) : ''}
+              </div>
+            </div>
+            <div class="gauge-change">
+              <span>${g.change > 0 ? '↑' : g.change < 0 ? '↓' : '→'}</span>
+              <span>${g.change > 0 ? '+' : ''}${g.change.toFixed(2)}%</span>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById('gaugesColumn').innerHTML = gaugesHTML;
+    }
+
+    function renderScorecard() {
+      const a = analysis;
+
+      const rows = [
+        { name: 'Yield Curve', signal: a.yieldCurveSignal, score: a.yieldCurveScore, change: a.yieldCurve10d, trend: a.yieldCurveTrend, weight: 20 },
+        { name: 'Credit Spread', signal: a.creditSignal, score: a.creditScore, change: a.creditChange30d, trend: 'N/A', weight: 25 },
+        { name: 'Real Rates', signal: a.realRateSignal, score: a.realRateScore, change: a.realRateChange30d, trend: 'N/A', weight: 10 },
+        { name: 'Dollar', signal: a.dollarSignal, score: a.dollarScore, change: a.uupChange30d, trend: 'N/A', weight: 15 },
+        { name: 'Volatility', signal: a.volSignal, score: a.volScore, change: a.volPercentile - 50, trend: 'N/A', weight: 20 },
+        { name: 'Commodities', signal: a.commoditySignal, score: a.commodityScore, change: a.dbcChange30d, trend: 'N/A', weight: 10 }
+      ].sort((a, b) => b.weight - a.weight);
+
+      let tableHTML = `
+        <thead>
+          <tr>
+            <th>Indicator</th>
+            <th>Signal</th>
+            <th>Score</th>
+            <th>30d Change</th>
+            <th>Trend</th>
+            <th>Weight</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+
+      rows.forEach(row => {
+        const signalColor = row.signal.includes('Healthy') || row.signal.includes('Steep') || row.signal.includes('Normal') || row.signal.includes('Weak') ? 'green' :
+                           row.signal.includes('Flattening') || row.signal.includes('Watching') || row.signal.includes('Elevated') || row.signal.includes('Strong') ? 'orange' :
+                           row.signal.includes('Inverted') || row.signal.includes('Stressed') || row.signal.includes('Critical') || row.signal.includes('Rising') ? 'red' : 'blue';
+
+        tableHTML += `
+          <tr>
+            <td>${row.name}</td>
+            <td><span class="signal-cell ${signalColor}">${row.signal}</span></td>
+            <td><span class="score-cell">${row.score.toFixed(0)}</span></td>
+            <td><span class="${row.change > 0 ? 'change-positive' : 'change-negative'}">${row.change > 0 ? '+' : ''}${row.change.toFixed(2)}%</span></td>
+            <td>${row.trend}</td>
+            <td><span class="weight-cell">${row.weight}%</span></td>
+          </tr>
+        `;
+      });
+
+      tableHTML += `</tbody>`;
+      document.getElementById('scorecardTable').innerHTML = tableHTML;
+    }
+
+    function renderCharts() {
+      const a = analysis;
+      const dates = allData.SPY.map(d => new Date(d.timestamp).toLocaleDateString());
+
+      const chartsHTML = `
+        <div class="chart-container">
+          <div class="chart-title">Yield Curve & Credit</div>
+          <div class="timeframe-buttons">
+            <button class="timeframe-btn active" data-timeframe="1y" data-chart="yc">1Y</button>
+            <button class="timeframe-btn" data-timeframe="6m" data-chart="yc">6M</button>
+            <button class="timeframe-btn" data-timeframe="3m" data-chart="yc">3M</button>
+            <button class="timeframe-btn" data-timeframe="2y" data-chart="yc">2Y</button>
+          </div>
+          <canvas id="ycChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <div class="chart-title">Volatility & Dollar</div>
+          <div class="timeframe-buttons">
+            <button class="timeframe-btn active" data-timeframe="1y" data-chart="vd">1Y</button>
+            <button class="timeframe-btn" data-timeframe="6m" data-chart="vd">6M</button>
+            <button class="timeframe-btn" data-timeframe="3m" data-chart="vd">3M</button>
+            <button class="timeframe-btn" data-timeframe="2y" data-chart="vd">2Y</button>
+          </div>
+          <canvas id="vdChart"></canvas>
+        </div>
+      `;
+
+      document.getElementById('chartsGrid').innerHTML = chartsHTML;
+
+      const chartConfigs = {
+        yc: {
+          canvas: 'ycChart',
+          label1: 'Yield Curve (TLT/SHY)',
+          data1: a.yieldCurveHistory,
+          color1: '#39d2c0',
+          label2: 'Credit Spread (HYG/LQD)',
+          data2: a.creditHistory,
+          color2: '#f0b429'
+        },
+        vd: {
+          canvas: 'vdChart',
+          label1: 'SPY Vol (21-day realized)',
+          data1: a.spyVolHistory,
+          color1: '#f85149',
+          label2: 'Dollar Index (UUP)',
+          data2: allData.UUP.map(b => b.close),
+          color2: '#3fb950'
+        }
+      };
+
+      Object.keys(chartConfigs).forEach(key => {
+        createChart(key, chartConfigs[key], dates);
+      });
+
+      document.querySelectorAll('.timeframe-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const chart = e.target.dataset.chart;
+          const timeframe = e.target.dataset.timeframe;
+
+          document.querySelectorAll(`.timeframe-btn[data-chart="${chart}"]`).forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+
+          const config = chartConfigs[chart];
+          updateChart(chart, config, dates, timeframe);
+        });
+      });
+    }
+
+    function getDataSlice(data, timeframe) {
+      const months = { '3m': 3, '6m': 6, '1y': 12, '2y': 24 };
+      const sliceIndex = Math.max(0, data.length - (months[timeframe] * 21));
+      return data.slice(sliceIndex);
+    }
+
+    function createChart(key, config, dates) {
+      const timeframe = '1y';
+      const data1 = getDataSlice(config.data1, timeframe);
+      const data2 = getDataSlice(config.data2, timeframe);
+      const minLen = Math.min(data1.length, data2.length);
+
+      const norm1 = data1.slice(-minLen).map(v => (v / data1[0]) * 100);
+      const norm2 = data2.slice(-minLen).map(v => (v / data2[0]) * 100);
+      const slicedDates = dates.slice(-minLen);
+
+      const ctx = document.getElementById(config.canvas).getContext('2d');
+      window[`${key}ChartInstance`] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: slicedDates,
+          datasets: [
+            {
+              label: config.label1,
+              data: norm1,
+              borderColor: config.color1,
+              backgroundColor: `${config.color1}10`,
+              borderWidth: 2,
+              tension: 0.3,
+              yAxisID: 'y1'
+            },
+            {
+              label: config.label2,
+              data: norm2,
+              borderColor: config.color2,
+              backgroundColor: `${config.color2}10`,
+              borderWidth: 2,
+              tension: 0.3,
+              yAxisID: 'y2'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              labels: { color: '#8b949e', font: { size: 12 } }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8b949e' },
+              grid: { color: '#30363d' }
+            },
+            y1: {
+              type: 'linear',
+              position: 'left',
+              ticks: { color: '#8b949e' },
+              grid: { color: '#30363d' }
+            },
+            y2: {
+              type: 'linear',
+              position: 'right',
+              ticks: { color: '#8b949e' },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart(key, config, dates, timeframe) {
+      const data1 = getDataSlice(config.data1, timeframe);
+      const data2 = getDataSlice(config.data2, timeframe);
+      const minLen = Math.min(data1.length, data2.length);
+
+      const norm1 = data1.slice(-minLen).map(v => (v / data1[0]) * 100);
+      const norm2 = data2.slice(-minLen).map(v => (v / data2[0]) * 100);
+      const slicedDates = dates.slice(-minLen);
+
+      const instance = window[`${key}ChartInstance`];
+      instance.data.labels = slicedDates;
+      instance.data.datasets[0].data = norm1;
+      instance.data.datasets[1].data = norm2;
+      instance.update();
+    }
+
+    function renderTabs() {
+      const a = analysis;
+
+      // Yield Curve Tab
+      const ycTabHTML = `
+        <div class="tab-section">
+          <h3>Current Yield Curve Status</h3>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">TLT/SHY Ratio</span>
+            <span class="tab-ratio-value">${a.yieldCurveRatio.toFixed(4)}</span>
+          </div>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">50-Day SMA</span>
+            <span class="tab-ratio-value">${a.yieldCurveSMA.toFixed(4)}</span>
+          </div>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">TLT/IEF Ratio</span>
+            <span class="tab-ratio-value">${(allData.TLT[allData.TLT.length - 1].close / allData.IEF[allData.IEF.length - 1].close).toFixed(4)}</span>
+          </div>
+        </div>
+
+        <div class="tab-section">
+          <h3>Interpretation</h3>
+          <p><strong>Signal: ${a.yieldCurveSignal}</strong></p>
+          <p>The yield curve is currently ${a.yieldCurveTrend.toLowerCase()}, indicating ${a.yieldCurveTrend === 'Steepening' ? 'expectations of economic expansion and falling rates.' : a.yieldCurveTrend === 'Flattening' ? 'concerns about slowing growth or an eventual recession.' : 'stable economic expectations.'}
+          </p>
+          <p>Current ratio is in the <strong>${a.yieldCurvePercentile.toFixed(0)}th percentile</strong> of the last year — ${a.yieldCurvePercentile < 25 ? 'historically steep (low TLT/SHY), favoring equity valuations.' : a.yieldCurvePercentile > 75 ? 'historically flat/inverted (high TLT/SHY), a recessionary warning.' : 'within normal ranges.'}</p>
+        </div>
+
+        <div class="tab-section">
+          <h3>What This Means</h3>
+          <p>${a.yieldCurveTrend === 'Steepening'
+            ? 'Steepening curves typically precede equity rallies and imply Fed easing cycles ahead. Risk assets benefit.'
+            : a.yieldCurveTrend === 'Flattening'
+            ? 'Flattening is a warning signal — it often precedes recessions and may pressure valuations.'
+            : 'The current stability suggests neither aggressive easing nor tightening imminent.'
+          }</p>
+        </div>
+      `;
+
+      // Credit Tab
+      const creditTabHTML = `
+        <div class="tab-section">
+          <h3>Current Credit Status</h3>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">HYG/LQD Ratio</span>
+            <span class="tab-ratio-value">${a.creditRatio.toFixed(4)}</span>
+          </div>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">50-Day SMA</span>
+            <span class="tab-ratio-value">${a.creditSMA.toFixed(4)}</span>
+          </div>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">Distance from SMA</span>
+            <span class="tab-ratio-value" style="color: ${a.creditRatio > a.creditSMA ? '#3fb950' : '#f85149'};">${((a.creditRatio - a.creditSMA) / a.creditSMA * 100).toFixed(2)}%</span>
+          </div>
+        </div>
+
+        <div class="tab-section">
+          <h3>Credit Interpretation</h3>
+          <p><strong>Signal: ${a.creditSignal}</strong></p>
+          <p>The high-yield to investment-grade ratio is at ${a.creditSignal.toLowerCase()} levels. Higher ratios indicate tighter spreads (lower risk premium), while lower ratios suggest credit stress.</p>
+          <p>30-day change: <strong>${a.creditChange30d > 0 ? '+' : ''}${a.creditChange30d.toFixed(2)}%</strong> — ${a.creditChange30d > 0 ? 'risk appetite is improving.' : 'investors are becoming more risk-averse.'}</p>
+        </div>
+
+        <div class="tab-section">
+          <h3>What This Means</h3>
+          <p>Credit spreads are a barometer of systemic risk. When this ratio is high and rising, it signals confidence in corporate earnings and low default risk. When it falls sharply or drops below the 50-day average, it's a red flag for market stress and potential contagion.</p>
+        </div>
+      `;
+
+      // Volatility Tab
+      const volTabHTML = `
+        <div class="tab-section">
+          <h3>Volatility Status</h3>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">SPY 21-Day Realized Vol</span>
+            <span class="tab-ratio-value">${a.spyVol.toFixed(1)}%</span>
+          </div>
+          <div class="tab-ratio">
+            <span class="tab-ratio-label">Percentile Rank (1Y)</span>
+            <span class="tab-ratio-value">${a.volPercentile.toFixed(0)}th</span>
+          </div>
+        </div>
+
+        <div class="tab-section">
+          <h3>Vol Regime</h3>
+          <p><strong>Signal: ${a.volSignal}</strong></p>
+          <p>Current realized volatility is ${a.volSignal.toLowerCase()} relative to the past year. This ${a.volPercentile < 25 ? 'low level suggests complacency and may indicate a tactical opportunity when combined with bullish technicals.' : a.volPercentile > 75 ? 'elevated level suggests market stress; potential capitulation if other factors align bullishly.' : 'normal level leaves room for both upside and downside moves.'}</p>
+        </div>
+
+        <div class="tab-section">
+          <h3>What This Means</h3>
+          <p>Realized volatility reflects actual price swings in the market. When it's low, investors are confident. When it spikes, fear dominates. Extreme readings (very high or very low) often create tactical trading opportunities, especially when diverging from other macro signals.</p>
+        </div>
+      `;
+
+      // Playbook Tab
+      const playbookHTML = `
+        <table class="playbook-table">
+          <thead>
+            <tr>
+              <th>Macro Weather</th>
+              <th>Characteristics</th>
+              <th>Equity Stance</th>
+              <th>Bond Stance</th>
+              <th>Commodity Stance</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ${a.macroWeatherLabel === 'Sunny' ? 'class="active"' : ''}>
+              <td><strong>Sunny</strong> (75-100)</td>
+              <td>Low rates, healthy spreads, low vol, weak dollar, reflation</td>
+              <td>Fully risk-on, growth equities</td>
+              <td>Underweight duration</td>
+              <td>Overweight commodities</td>
+              <td>Weeks to months</td>
+            </tr>
+            <tr ${a.macroWeatherLabel === 'Partly Cloudy' ? 'class="active"' : ''}>
+              <td><strong>Partly Cloudy</strong> (55-74)</td>
+              <td>Mixed signals, moderate rates, normal spreads, near-normal vol</td>
+              <td>Selective risk, quality bias</td>
+              <td>Neutral duration</td>
+              <td>Neutral exposure</td>
+              <td>Days to weeks</td>
+            </tr>
+            <tr ${a.macroWeatherLabel === 'Overcast' ? 'class="active"' : ''}>
+              <td><strong>Overcast</strong> (40-54)</td>
+              <td>Tightening risk, credit stress emerging, vol rising</td>
+              <td>Reduce risk, defensive focus</td>
+              <td>Overweight duration</td>
+              <td>Underweight commodities</td>
+              <td>Days to weeks</td>
+            </tr>
+            <tr ${a.macroWeatherLabel === 'Stormy' ? 'class="active"' : ''}>
+              <td><strong>Stormy</strong> (0-39)</td>
+              <td>Inverted curve, credit stress, high vol, recession risk</td>
+              <td>Minimum equity, raise cash</td>
+              <td>Maximum duration (bonds rally)</td>
+              <td>Minimize commodities</td>
+              <td>Months</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="tab-section" style="margin-top: 20px;">
+          <h3>Current Positioning</h3>
+          <p>Based on today's <strong>${a.macroWeatherLabel}</strong> regime, the macro playbook suggests the positioning outlined in the row above.</p>
+        </div>
+      `;
+
+      document.getElementById('yield-curve').innerHTML = ycTabHTML;
+      document.getElementById('credit').innerHTML = creditTabHTML;
+      document.getElementById('volatility').innerHTML = volTabHTML;
+      document.getElementById('playbook').innerHTML = playbookHTML;
+
+      // Tab switching
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+          e.target.classList.add('active');
+          const tabId = e.target.dataset.tab;
+          document.getElementById(tabId).classList.add('active');
+        });
+      });
+    }
+
+    function renderAllocation() {
+      const a = analysis;
+
+      let equity, bonds, gold, commodities, cash;
+
+      if (a.macroWeatherScore >= 75) {
+        equity = '60-80%'; bonds = '10-20%'; gold = '5-10%'; commodities = '5-15%'; cash = '0-5%';
+      } else if (a.macroWeatherScore >= 55) {
+        equity = '50-60%'; bonds = '25-35%'; gold = '5-10%'; commodities = '5-10%'; cash = '5-10%';
+      } else if (a.macroWeatherScore >= 40) {
+        equity = '30-40%'; bonds = '40-50%'; gold = '10-15%'; commodities = '0-5%'; cash = '10-15%';
+      } else {
+        equity = '10-20%'; bonds = '50-60%'; gold = '10-15%'; commodities = '0-5%'; cash = '15-25%';
+      }
+
+      const allocHTML = `
+        <div class="alloc-title">Macro-Informed Allocation — ${new Date().toLocaleDateString()}</div>
+        <div class="alloc-grid">
+          <div class="alloc-item">
+            <div class="alloc-label">Equities</div>
+            <div class="alloc-range">${equity}</div>
+          </div>
+          <div class="alloc-item">
+            <div class="alloc-label">Bonds</div>
+            <div class="alloc-range">${bonds}</div>
+          </div>
+          <div class="alloc-item">
+            <div class="alloc-label">Gold</div>
+            <div class="alloc-range">${gold}</div>
+          </div>
+          <div class="alloc-item">
+            <div class="alloc-label">Commodities</div>
+            <div class="alloc-range">${commodities}</div>
+          </div>
+          <div class="alloc-item">
+            <div class="alloc-label">Cash</div>
+            <div class="alloc-range">${cash}</div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('allocBanner').innerHTML = allocHTML;
+    }
+
+    function renderBacktest() {
+      if (!backtestResults) {
+        document.getElementById('backtest').innerHTML = '<div style="padding:20px;color:var(--text-secondary)">Insufficient data for backtesting. Need at least 18 months of daily data.</div>';
+        return;
+      }
+
+      const bt = backtestResults;
+      const sr = bt.stateResults;
+      const currentLabel = analysis.macroWeatherLabel;
+
+      // Format date range
+      const fmtDate = d => {
+        if (!d) return 'N/A';
+        const dt = d instanceof Date ? d : new Date(d);
+        return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      };
+      const rangeStr = `${fmtDate(bt.dataRange.start)} — ${fmtDate(bt.dataRange.end)}`;
+
+      let html = '';
+
+      // Header stats
+      html += `<div class="bt-section"><div class="bt-section-title">Backtest Overview (${rangeStr} · ${bt.totalDays} trading days)</div></div>`;
+
+      html += '<div class="bt-stats-grid">';
+      html += `<div class="bt-stat-card"><div class="bt-stat-value" style="color:var(--cyan)">${bt.totalDays}</div><div class="bt-stat-label">Days Analyzed</div></div>`;
+      html += `<div class="bt-stat-card"><div class="bt-stat-value" style="color:var(--gold)">${bt.avgScore.toFixed(0)}</div><div class="bt-stat-label">Avg Weather Score</div></div>`;
+      html += `<div class="bt-stat-card"><div class="bt-stat-value" style="color:var(--green)">${bt.sunnyPct.toFixed(0)}%</div><div class="bt-stat-label">Time in Sunny</div></div>`;
+      html += `<div class="bt-stat-card"><div class="bt-stat-value" style="color:var(--red)">${bt.stormyPct.toFixed(0)}%</div><div class="bt-stat-label">Time in Stormy</div></div>`;
+      html += '</div>';
+
+      // Performance by Weather State table
+      html += '<div class="bt-section"><div class="bt-section-title">SPY Forward Returns by Macro Weather State</div></div>';
+      html += '<table class="bt-table"><thead><tr>';
+      html += '<th>Weather</th><th>Days</th><th>Avg 1m Return</th><th>Avg 3m Return</th><th>Median 3m</th><th>1m Win Rate</th><th>3m Win Rate</th><th>Avg Max DD</th><th>Best 3m</th><th>Worst 3m</th>';
+      html += '</tr></thead><tbody>';
+
+      const weatherColors = { 'Sunny': 'var(--green)', 'Partly Cloudy': 'var(--blue)', 'Overcast': 'var(--orange)', 'Stormy': 'var(--red)' };
+      const weatherEmoji = { 'Sunny': '☀️', 'Partly Cloudy': '⛅', 'Overcast': '☁️', 'Stormy': '⛈️' };
+
+      ['Sunny', 'Partly Cloudy', 'Overcast', 'Stormy'].forEach(state => {
+        const s = sr[state];
+        const isCurrentState = state === currentLabel;
+        const color = weatherColors[state];
+        const sign1m = s.avg1m >= 0 ? '+' : '';
+        const sign3m = s.avg3m >= 0 ? '+' : '';
+        const signM3m = s.median3m >= 0 ? '+' : '';
+
+        html += `<tr ${isCurrentState ? 'class="highlight-row"' : ''}>`;
+        html += `<td style="font-weight:700;color:${color}">${weatherEmoji[state]} ${state}</td>`;
+        html += `<td>${s.count}</td>`;
+        html += `<td style="color:${s.avg1m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${sign1m}${s.avg1m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.avg3m >= 0 ? 'var(--green)' : 'var(--red)'}; font-weight:600">${sign3m}${s.avg3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.median3m >= 0 ? 'var(--green)' : 'var(--red)'}">${signM3m}${s.median3m.toFixed(2)}%</td>`;
+        html += `<td style="color:${s.winRate1m >= 55 ? 'var(--green)' : s.winRate1m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate1m.toFixed(0)}%</td>`;
+        html += `<td style="color:${s.winRate3m >= 55 ? 'var(--green)' : s.winRate3m >= 45 ? 'var(--text-secondary)' : 'var(--red)'}">${s.winRate3m.toFixed(0)}%</td>`;
+        html += `<td style="color:var(--red)">${s.avgMaxDD.toFixed(2)}%</td>`;
+        html += `<td style="color:var(--green)">${s.best3m ? '+' + s.best3m.toFixed(1) + '%' : 'N/A'}</td>`;
+        html += `<td style="color:var(--red)">${s.worst3m ? s.worst3m.toFixed(1) + '%' : 'N/A'}</td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      // Current state insight
+      const currentSR = sr[currentLabel];
+      if (currentSR && currentSR.count > 0) {
+        html += `<div class="bt-insight">`;
+        html += `<strong style="color:var(--gold)">Current State Insight:</strong> The macro weather is currently <strong style="color:${weatherColors[currentLabel]}">${currentLabel}</strong>. `;
+        html += `Historically, when in this state, SPY returned an average of <strong>${currentSR.avg3m >= 0 ? '+' : ''}${currentSR.avg3m.toFixed(2)}%</strong> over the next 3 months `;
+        html += `with a <strong>${currentSR.winRate3m.toFixed(0)}%</strong> win rate. `;
+        html += `The typical max drawdown experienced was <strong>${currentSR.avgMaxDD.toFixed(2)}%</strong>. `;
+        if (currentSR.avg3m > 3) html += 'This environment has historically been favorable for risk assets.';
+        else if (currentSR.avg3m < -1) html += 'This environment has historically been challenging for risk assets. Consider defensive positioning.';
+        else html += 'Returns in this environment tend to be modest — favoring selective positioning over aggressive bets.';
+        html += '</div>';
+      }
+
+      // Drawdown prediction accuracy
+      if (bt.drawdowns.length > 0) {
+        html += '<div class="bt-section"><div class="bt-section-title">Drawdown Prediction Accuracy (SPY drops > 5%)</div></div>';
+        html += '<table class="bt-table"><thead><tr>';
+        html += '<th>Drawdown</th><th>Severity</th><th>Weather Score (20d before)</th><th>Weather State</th><th>Early Warning?</th>';
+        html += '</tr></thead><tbody>';
+
+        bt.drawdowns.forEach((d, idx) => {
+          const warningColor = d.predicted ? 'var(--green)' : 'var(--red)';
+          const warningText = d.predicted ? '✅ Yes — already below 55' : '❌ No — score was elevated';
+          html += `<tr>`;
+          html += `<td>Drawdown #${idx + 1}</td>`;
+          html += `<td style="color:var(--red); font-weight:600">${d.troughDD.toFixed(1)}%</td>`;
+          html += `<td style="font-weight:700">${d.weatherScore}</td>`;
+          html += `<td style="color:${weatherColors[d.weatherBefore] || 'var(--text-secondary)'}">${d.weatherBefore}</td>`;
+          html += `<td style="color:${warningColor}">${warningText}</td>`;
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        html += `<div class="bt-insight">`;
+        html += `<strong style="color:var(--gold)">Prediction Rate:</strong> The Macro Weather score was below 55 (Overcast or Stormy) within 20 trading days before `;
+        html += `<strong>${bt.predictedDrawdowns}</strong> of <strong>${bt.totalDrawdowns}</strong> significant drawdowns (${bt.totalDrawdowns > 0 ? ((bt.predictedDrawdowns/bt.totalDrawdowns)*100).toFixed(0) : 0}%). `;
+        if (bt.predictedDrawdowns > 0 && bt.totalDrawdowns > 0) {
+          const rate = (bt.predictedDrawdowns/bt.totalDrawdowns)*100;
+          if (rate >= 70) html += 'The model shows strong predictive value for identifying risk-off environments before major equity declines.';
+          else if (rate >= 50) html += 'The model provides useful but imperfect warning signals. Combine with other indicators for confirmation.';
+          else html += 'The model caught some drawdowns but missed others. Use as one input among many, not a standalone signal.';
+        }
+        html += '</div>';
+      }
+
+      // Regime transitions
+      if (bt.transitions.length > 0) {
+        html += '<div class="bt-section"><div class="bt-section-title">Regime Transitions (Weather State Changes)</div></div>';
+        html += `<div class="bt-insight"><strong style="color:var(--gold)">Total Transitions:</strong> ${bt.transitions.length} regime changes detected over ${bt.totalDays} trading days. `;
+        const avgDuration = Math.round(bt.totalDays / (bt.transitions.length + 1));
+        html += `Average regime duration: <strong>${avgDuration} trading days</strong> (~${Math.round(avgDuration/5)} weeks). `;
+        html += 'Macro regimes tend to persist for weeks to months, making weekly check-ins sufficient.</div>';
+
+        // Transition matrix
+        html += '<table class="bt-table"><thead><tr><th>From → To</th><th>Count</th><th>% of Transitions</th></tr></thead><tbody>';
+        const transitionCounts = {};
+        bt.transitions.forEach(t => {
+          const key = `${t.from} → ${t.to}`;
+          transitionCounts[key] = (transitionCounts[key] || 0) + 1;
+        });
+        Object.entries(transitionCounts).sort((a,b) => b[1] - a[1]).forEach(([key, count]) => {
+          const pct = ((count / bt.transitions.length) * 100).toFixed(0);
+          html += `<tr><td style="text-align:left;font-weight:600">${key}</td><td>${count}</td><td>${pct}%</td></tr>`;
+        });
+        html += '</tbody></table>';
+      }
+
+      // Methodology
+      html += '<div class="bt-section"><div class="bt-section-title">Methodology & Caveats</div></div>';
+      html += '<div class="bt-methodology">';
+      html += '<strong style="color:var(--cyan)">How This Backtest Works:</strong><br><br>';
+      html += '1. At every trading day in the data range, we compute the full Macro Weather score using the same 6-indicator formula the dashboard uses today.<br>';
+      html += '2. We then measure SPY\'s actual forward returns from that day (1-month = 21 trading days, 3-month = 63 trading days).<br>';
+      html += '3. We group results by which Weather state was active and compute average returns, win rates, and max drawdowns for each state.<br>';
+      html += '4. For drawdown prediction, we check if the Weather score was below 55 within 20 trading days before each significant (>5%) SPY decline.<br><br>';
+      html += '<strong style="color:var(--orange)">Important Caveats:</strong><br>';
+      html += '• This is an <strong>in-sample</strong> backtest — the model was designed using the same data patterns it\'s tested on. Out-of-sample validation would be more rigorous.<br>';
+      html += '• The data window is limited to ~2 years from Polygon.io. Ideally you\'d want 10-20 years covering multiple full market cycles.<br>';
+      html += '• No transaction costs or slippage are included. Real-world portfolio rebalancing has friction.<br>';
+      html += '• The macro indicators (yield curve, credit spreads, volatility) have well-documented predictive power in academic literature going back decades — this backtest validates that the <em>specific implementation</em> captures those relationships.<br>';
+      html += '• Past performance absolutely does not guarantee future results. Market regimes evolve.';
+      html += '</div>';
+
+      document.getElementById('backtest').innerHTML = html;
+    }
+
+    async function main() {
+      try {
+        document.getElementById('errorPanel').innerHTML = '';
+
+        for (const ticker of TICKERS) {
+          await fetchTicker(ticker);
+        }
+
+        analysis = analyzeAll();
+
+        renderBriefing();
+        renderAlerts();
+        renderMetrics();
+        renderGauges();
+        renderScorecard();
+        renderCharts();
+        renderTabs();
+        renderAllocation();
+        runBacktest();
+        renderBacktest();
+
+        document.getElementById('loadingOverlay').classList.add('hidden');
+      } catch (error) {
+        console.error('Error in main:', error);
+        document.getElementById('errorPanel').innerHTML = `<div class="error-panel">Error loading data: ${error.message}</div>`;
+        document.getElementById('loadingOverlay').classList.add('hidden');
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
