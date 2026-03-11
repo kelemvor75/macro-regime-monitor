@@ -1188,6 +1188,20 @@
       const creditSmaFull = sma(creditRatioFull, 50);
       const uupSmaFull = sma(closes.UUP, 50);
 
+      // Precompute 21-day realized vol for entire series (avoids O(n^2) nested loop)
+      const volFullArr = new Array(minLen).fill(null);
+      for (let i = 21; i < minLen; i++) {
+        const logRets = [];
+        for (let k = i - 20; k <= i; k++) {
+          if (closes.SPY[k] > 0 && closes.SPY[k-1] > 0) logRets.push(Math.log(closes.SPY[k] / closes.SPY[k-1]));
+        }
+        if (logRets.length > 5) {
+          const mean = logRets.reduce((a,b) => a+b, 0) / logRets.length;
+          const variance = logRets.reduce((s,v) => s + (v - mean) ** 2, 0) / logRets.length;
+          volFullArr[i] = Math.sqrt(variance) * Math.sqrt(252) * 100;
+        }
+      }
+
       // We need at least 252 days (1 year) of lookback for percentile calculations + 63 days forward for 3-month returns
       const startIdx = 252; // need 1yr lookback
       const endIdx = minLen - 63; // need 3 months forward
@@ -1252,38 +1266,15 @@
         else if (uupNow < uupSmaNow && uupChg < 0) dollarSig = 'Weak Dollar';
         else dollarSig = 'Dollar Neutral';
 
-        // Vol signal (21-day realized vol percentile)
+        // Vol signal (use precomputed vol array)
         let volSig = 'Normal Vol';
-        if (i >= 21) {
-          const logRets = [];
-          for (let k = i - 20; k <= i; k++) {
-            if (closes.SPY[k] > 0 && closes.SPY[k-1] > 0) {
-              logRets.push(Math.log(closes.SPY[k] / closes.SPY[k-1]));
-            }
-          }
-          if (logRets.length > 5) {
-            const mean = logRets.reduce((a,b) => a+b, 0) / logRets.length;
-            const variance = logRets.reduce((s,v) => s + (v - mean) ** 2, 0) / logRets.length;
-            const currentVol = Math.sqrt(variance) * Math.sqrt(252) * 100;
-            // Compute vol history for percentile
-            const volHist = [];
-            for (let j = Math.max(21, i - 252); j <= i; j++) {
-              const lr = [];
-              for (let k = j - 20; k <= j; k++) {
-                if (closes.SPY[k] > 0 && closes.SPY[k-1] > 0) lr.push(Math.log(closes.SPY[k] / closes.SPY[k-1]));
-              }
-              if (lr.length > 5) {
-                const m = lr.reduce((a,b) => a+b, 0) / lr.length;
-                const v = lr.reduce((s,x) => s + (x - m) ** 2, 0) / lr.length;
-                volHist.push(Math.sqrt(v) * Math.sqrt(252) * 100);
-              }
-            }
-            const vPct = volHist.length > 0 ? percentileRank(currentVol, volHist) : 50;
-            if (vPct < 25) volSig = 'Low Vol';
-            else if (vPct < 50) volSig = 'Normal Vol';
-            else if (vPct < 75) volSig = 'Elevated Vol';
-            else volSig = 'High Vol';
-          }
+        if (volFullArr[i] !== null) {
+          const volLookback = volFullArr.slice(Math.max(0, i - 252), i).filter(v => v !== null);
+          const vPct = volLookback.length > 0 ? percentileRank(volFullArr[i], volLookback) : 50;
+          if (vPct < 25) volSig = 'Low Vol';
+          else if (vPct < 50) volSig = 'Normal Vol';
+          else if (vPct < 75) volSig = 'Elevated Vol';
+          else volSig = 'High Vol';
         }
 
         // Commodity signal
@@ -1964,10 +1955,10 @@
 
         <div class="tab-section">
           <h3>Interpretation</h3>
-          <p><strong>Signal: ${a.yieldCurveSignal}</strong></p>
+          <p>Signal: ${signalBadge(a.yieldCurveSignal, (a.yieldCurveSignal === 'Steep' || a.yieldCurveSignal === 'Normal') ? 'badge-green' : a.yieldCurveSignal === 'Neutral' ? 'badge-blue' : a.yieldCurveSignal === 'Flattening' ? 'badge-orange' : 'badge-red')}</p>
           <p>The yield curve is currently ${a.yieldCurveTrend.toLowerCase()}, indicating ${a.yieldCurveTrend === 'Steepening' ? 'expectations of economic expansion and falling rates.' : a.yieldCurveTrend === 'Flattening' ? 'concerns about slowing growth or an eventual recession.' : 'stable economic expectations.'}
           </p>
-          <p>Current ratio is in the <strong>${a.yieldCurvePercentile.toFixed(0)}th percentile</strong> of the last year — ${a.yieldCurvePercentile < 25 ? 'historically steep (low TLT/SHY), favoring equity valuations.' : a.yieldCurvePercentile > 75 ? 'historically flat/inverted (high TLT/SHY), a recessionary warning.' : 'within normal ranges.'}</p>
+          <p>Current ratio is in the <strong style="color:var(--text-primary)">${a.yieldCurvePercentile.toFixed(0)}th percentile</strong> of the last year — ${a.yieldCurvePercentile < 25 ? '<span style="color:var(--green)">historically steep (low TLT/SHY), favoring equity valuations.</span>' : a.yieldCurvePercentile > 75 ? '<span style="color:var(--red)">historically flat/inverted (high TLT/SHY), a recessionary warning.</span>' : 'within normal ranges.'}</p>
         </div>
 
         <div class="tab-section">
@@ -2001,9 +1992,9 @@
 
         <div class="tab-section">
           <h3>Credit Interpretation</h3>
-          <p><strong>Signal: ${a.creditSignal}</strong></p>
+          <p>Signal: ${signalBadge(a.creditSignal, a.creditSignal === 'Healthy' ? 'badge-green' : a.creditSignal === 'Recovering' ? 'badge-blue' : a.creditSignal === 'Watching' ? 'badge-orange' : 'badge-red')}</p>
           <p>The high-yield to investment-grade ratio is at ${a.creditSignal.toLowerCase()} levels. Higher ratios indicate tighter spreads (lower risk premium), while lower ratios suggest credit stress.</p>
-          <p>30-day change: <strong>${a.creditChange30d > 0 ? '+' : ''}${a.creditChange30d.toFixed(2)}%</strong> — ${a.creditChange30d > 0 ? 'risk appetite is improving.' : 'investors are becoming more risk-averse.'}</p>
+          <p>30-day change: <strong style="color:${a.creditChange30d > 0 ? 'var(--green)' : 'var(--red)'}">${a.creditChange30d > 0 ? '+' : ''}${a.creditChange30d.toFixed(2)}%</strong> — ${a.creditChange30d > 0 ? '<span style="color:var(--green)">risk appetite is improving.</span>' : '<span style="color:var(--red)">investors are becoming more risk-averse.</span>'}</p>
         </div>
 
         <div class="tab-section">
@@ -2028,8 +2019,8 @@
 
         <div class="tab-section">
           <h3>Vol Regime</h3>
-          <p><strong>Signal: ${a.volSignal}</strong></p>
-          <p>Current realized volatility is ${a.volSignal.toLowerCase()} relative to the past year. This ${a.volPercentile < 25 ? 'low level suggests complacency and may indicate a tactical opportunity when combined with bullish technicals.' : a.volPercentile > 75 ? 'elevated level suggests market stress; potential capitulation if other factors align bullishly.' : 'normal level leaves room for both upside and downside moves.'}</p>
+          <p>Signal: ${signalBadge(a.volSignal, a.volSignal === 'Low Vol' ? 'badge-green' : a.volSignal === 'Normal Vol' ? 'badge-cyan' : a.volSignal === 'Elevated Vol' ? 'badge-orange' : 'badge-red')}</p>
+          <p>Current realized volatility is ${a.volSignal.toLowerCase()} relative to the past year. This ${a.volPercentile < 25 ? '<span style="color:var(--green)">low level suggests complacency and may indicate a tactical opportunity when combined with bullish technicals.</span>' : a.volPercentile > 75 ? '<span style="color:var(--red)">elevated level suggests market stress; potential capitulation if other factors align bullishly.</span>' : 'normal level leaves room for both upside and downside moves.'}</p>
         </div>
 
         <div class="tab-section">
@@ -2499,8 +2490,13 @@
         renderCharts();
         renderTabs();
         renderAllocation();
-        runBacktest();
-        renderBacktest();
+        try {
+          runBacktest();
+          renderBacktest();
+        } catch (btError) {
+          console.error('Backtest error:', btError);
+          document.getElementById('backtest').innerHTML = `<div style="padding:20px;color:var(--red)">Backtest error: ${btError.message}<br><br><pre style="font-size:11px;color:var(--text-secondary);white-space:pre-wrap">${btError.stack}</pre></div>`;
+        }
 
         document.getElementById('loadingOverlay').classList.add('hidden');
       } catch (error) {
