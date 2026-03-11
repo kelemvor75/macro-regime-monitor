@@ -519,6 +519,22 @@
       margin-bottom: 12px;
     }
 
+    .tab-signal-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+
+    .tab-signal-label {
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
     .tab-ratio {
       display: flex;
       justify-content: space-between;
@@ -1955,7 +1971,10 @@
 
         <div class="tab-section">
           <h3>Interpretation</h3>
-          <p>Signal: ${signalBadge(a.yieldCurveSignal, (a.yieldCurveSignal === 'Steep' || a.yieldCurveSignal === 'Normal') ? 'badge-green' : a.yieldCurveSignal === 'Neutral' ? 'badge-blue' : a.yieldCurveSignal === 'Flattening' ? 'badge-orange' : 'badge-red')}</p>
+          <div class="tab-signal-line">
+            <span class="tab-signal-label">Signal:</span>
+            ${signalBadge(a.yieldCurveSignal, (a.yieldCurveSignal === 'Steep' || a.yieldCurveSignal === 'Normal') ? 'badge-green' : a.yieldCurveSignal === 'Neutral' ? 'badge-blue' : a.yieldCurveSignal === 'Flattening' ? 'badge-orange' : 'badge-red')}
+          </div>
           <p>The yield curve is currently ${a.yieldCurveTrend.toLowerCase()}, indicating ${a.yieldCurveTrend === 'Steepening' ? 'expectations of economic expansion and falling rates.' : a.yieldCurveTrend === 'Flattening' ? 'concerns about slowing growth or an eventual recession.' : 'stable economic expectations.'}
           </p>
           <p>Current ratio is in the <strong style="color:var(--text-primary)">${a.yieldCurvePercentile.toFixed(0)}th percentile</strong> of the last year — ${a.yieldCurvePercentile < 25 ? '<span style="color:var(--green)">historically steep (low TLT/SHY), favoring equity valuations.</span>' : a.yieldCurvePercentile > 75 ? '<span style="color:var(--red)">historically flat/inverted (high TLT/SHY), a recessionary warning.</span>' : 'within normal ranges.'}</p>
@@ -1992,7 +2011,10 @@
 
         <div class="tab-section">
           <h3>Credit Interpretation</h3>
-          <p>Signal: ${signalBadge(a.creditSignal, a.creditSignal === 'Healthy' ? 'badge-green' : a.creditSignal === 'Recovering' ? 'badge-blue' : a.creditSignal === 'Watching' ? 'badge-orange' : 'badge-red')}</p>
+          <div class="tab-signal-line">
+            <span class="tab-signal-label">Signal:</span>
+            ${signalBadge(a.creditSignal, a.creditSignal === 'Healthy' ? 'badge-green' : a.creditSignal === 'Recovering' ? 'badge-blue' : a.creditSignal === 'Watching' ? 'badge-orange' : 'badge-red')}
+          </div>
           <p>The high-yield to investment-grade ratio is at ${a.creditSignal.toLowerCase()} levels. Higher ratios indicate tighter spreads (lower risk premium), while lower ratios suggest credit stress.</p>
           <p>30-day change: <strong style="color:${a.creditChange30d > 0 ? 'var(--green)' : 'var(--red)'}">${a.creditChange30d > 0 ? '+' : ''}${a.creditChange30d.toFixed(2)}%</strong> — ${a.creditChange30d > 0 ? '<span style="color:var(--green)">risk appetite is improving.</span>' : '<span style="color:var(--red)">investors are becoming more risk-averse.</span>'}</p>
         </div>
@@ -2019,7 +2041,10 @@
 
         <div class="tab-section">
           <h3>Vol Regime</h3>
-          <p>Signal: ${signalBadge(a.volSignal, a.volSignal === 'Low Vol' ? 'badge-green' : a.volSignal === 'Normal Vol' ? 'badge-cyan' : a.volSignal === 'Elevated Vol' ? 'badge-orange' : 'badge-red')}</p>
+          <div class="tab-signal-line">
+            <span class="tab-signal-label">Signal:</span>
+            ${signalBadge(a.volSignal, a.volSignal === 'Low Vol' ? 'badge-green' : a.volSignal === 'Normal Vol' ? 'badge-cyan' : a.volSignal === 'Elevated Vol' ? 'badge-orange' : 'badge-red')}
+          </div>
           <p>Current realized volatility is ${a.volSignal.toLowerCase()} relative to the past year. This ${a.volPercentile < 25 ? '<span style="color:var(--green)">low level suggests complacency and may indicate a tactical opportunity when combined with bullish technicals.</span>' : a.volPercentile > 75 ? '<span style="color:var(--red)">elevated level suggests market stress; potential capitulation if other factors align bullishly.</span>' : 'normal level leaves room for both upside and downside moves.'}</p>
         </div>
 
@@ -2330,7 +2355,7 @@
         };
       }
 
-      const spreadA = modelSpread(sr, states);
+      const spreadA = modelSpread(sr, allStates);
       const spreadB = modelSpread(mr, momentumStates);
       const spreadC = modelSpread(cr, comboStates);
 
